@@ -30,18 +30,20 @@ func (k *Keeper) GetPrecompileInstance(
 			Addresses: []common.Address{precompile.Address()},
 		}, found, nil
 	}
+	return nil, false, nil
 
-	// Get the precompile from the dynamic precompiles
-	precompile, found, err := k.erc20Keeper.GetERC20PrecompileInstance(ctx, address)
-	if err != nil || !found {
-		return nil, false, err
-	}
-	addressMap := make(map[common.Address]vm.PrecompiledContract)
-	addressMap[address] = precompile
-	return &Precompiles{
-		Map:       addressMap,
-		Addresses: []common.Address{precompile.Address()},
-	}, found, nil
+	// NOTE: We don't use the dynamic precompiles
+	// // Get the precompile from the dynamic precompiles
+	// precompile, found, err := k.erc20Keeper.GetERC20PrecompileInstance(ctx, address)
+	// if err != nil || !found {
+	// 	return nil, false, err
+	// }
+	// addressMap := make(map[common.Address]vm.PrecompiledContract)
+	// addressMap[address] = precompile
+	// return &Precompiles{
+	// 	Map:       addressMap,
+	// 	Addresses: []common.Address{precompile.Address()},
+	// }, found, nil
 }
 
 // GetPrecompilesCallHook returns a closure that can be used to instantiate the EVM with a specific
