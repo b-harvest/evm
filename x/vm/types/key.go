@@ -27,6 +27,7 @@ const (
 	prefixStorage
 	prefixParams
 	prefixCodeHash
+	prefixReceiptsRoot
 )
 
 // prefix bytes for the EVM transient store
@@ -35,22 +36,27 @@ const (
 	prefixTransientTxIndex
 	prefixTransientLogSize
 	prefixTransientGasUsed
+	prefixTransientReceipt
+	prefixTransientTxIndexByTxHash
 )
 
 // KVStore key prefixes
 var (
-	KeyPrefixCode     = []byte{prefixCode}
-	KeyPrefixStorage  = []byte{prefixStorage}
-	KeyPrefixParams   = []byte{prefixParams}
-	KeyPrefixCodeHash = []byte{prefixCodeHash}
+	KeyPrefixCode         = []byte{prefixCode}
+	KeyPrefixStorage      = []byte{prefixStorage}
+	KeyPrefixParams       = []byte{prefixParams}
+	KeyPrefixCodeHash     = []byte{prefixCodeHash}
+	KeyPrefixReceiptsRoot = []byte{prefixReceiptsRoot}
 )
 
 // Transient Store key prefixes
 var (
-	KeyPrefixTransientBloom   = []byte{prefixTransientBloom}
-	KeyPrefixTransientTxIndex = []byte{prefixTransientTxIndex}
-	KeyPrefixTransientLogSize = []byte{prefixTransientLogSize}
-	KeyPrefixTransientGasUsed = []byte{prefixTransientGasUsed}
+	KeyPrefixTransientBloom           = []byte{prefixTransientBloom}
+	KeyPrefixTransientTxIndex         = []byte{prefixTransientTxIndex}
+	KeyPrefixTransientLogSize         = []byte{prefixTransientLogSize}
+	KeyPrefixTransientGasUsed         = []byte{prefixTransientGasUsed}
+	KeyPrefixTransientReceipt         = []byte{prefixTransientReceipt}
+	KeyPrefixTransientTxIndexByTxHash = []byte{prefixTransientTxIndexByTxHash}
 )
 
 // AddressStoragePrefix returns a prefix to iterate over a given account storage.

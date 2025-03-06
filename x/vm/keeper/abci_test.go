@@ -19,7 +19,8 @@ func (suite *KeeperTestSuite) TestEndBlock() {
 	suite.Require().NoError(err)
 
 	postEventManager := unitNetwork.GetContext().EventManager()
-	// should emit 1 EventTypeBlockBloom event on EndBlock
-	suite.Require().Equal(1, len(postEventManager.Events()))
+	// should emit 1 EventTypeBlockBloom and 1 EventTypeReceiptsRoot event on EndBlock
+	suite.Require().Equal(2, len(postEventManager.Events()))
 	suite.Require().Equal(evmtypes.EventTypeBlockBloom, postEventManager.Events()[0].Type)
+	suite.Require().Equal(evmtypes.EventTypeReceiptsRoot, postEventManager.Events()[1].Type)
 }

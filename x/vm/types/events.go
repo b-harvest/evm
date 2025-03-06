@@ -2,10 +2,11 @@ package types
 
 // Evm module events
 const (
-	EventTypeEthereumTx = TypeMsgEthereumTx
-	EventTypeBlockBloom = "block_bloom"
-	EventTypeTxLog      = "tx_log"
-	EventTypeFeeMarket  = "evm_fee_market"
+	EventTypeEthereumTx   = TypeMsgEthereumTx
+	EventTypeBlockBloom   = "block_bloom"
+	EventTypeTxLog        = "tx_log"
+	EventTypeFeeMarket    = "evm_fee_market"
+	EventTypeReceiptsRoot = "receipts_root"
 
 	AttributeKeyBaseFee         = "base_fee"
 	AttributeKeyContractAddress = "contract"
@@ -18,9 +19,10 @@ const (
 	AttributeKeyTxLog           = "txLog"
 
 	// tx failed in eth vm execution
-	AttributeKeyEthereumTxFailed = "ethereumTxFailed"
-	AttributeValueCategory       = ModuleName
-	AttributeKeyEthereumBloom    = "bloom"
+	AttributeKeyEthereumTxFailed     = "ethereumTxFailed"
+	AttributeValueCategory           = ModuleName
+	AttributeKeyEthereumBloom        = "bloom"
+	AttributeKeyEthereumReceiptsRoot = "receiptsRoot"
 
 	MetricKeyTransitionDB = "transition_db"
 	MetricKeyStaticCall   = "static_call"

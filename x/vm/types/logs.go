@@ -98,7 +98,7 @@ func NewLogsFromEth(ethlogs []*ethtypes.Log) []*Log {
 
 // LogsToEthereum casts the Cosmos EVM logs to a slice of Ethereum Logs.
 func LogsToEthereum(logs []*Log) []*ethtypes.Log {
-	var ethLogs []*ethtypes.Log //nolint: prealloc
+	ethLogs := make([]*ethtypes.Log, 0, len(logs))
 	for i := range logs {
 		ethLogs = append(ethLogs, logs[i].ToEthereum())
 	}

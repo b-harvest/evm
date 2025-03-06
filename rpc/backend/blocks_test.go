@@ -1088,6 +1088,7 @@ func (suite *BackendTestSuite) TestGetEthBlockFromTendermint() {
 
 			root := common.Hash{}.Bytes()
 			receipt := ethtypes.NewReceipt(root, false, gasUsed.Uint64())
+			receiptsRoot := ethtypes.DeriveSha(ethtypes.Receipts([]*ethtypes.Receipt{}), trie.NewStackTrie(nil))
 			bloom := ethtypes.CreateBloom(ethtypes.Receipts{receipt})
 
 			ethRPCTxs := []interface{}{}
@@ -1118,6 +1119,7 @@ func (suite *BackendTestSuite) TestGetEthBlockFromTendermint() {
 				bloom,
 				common.BytesToAddress(tc.validator.Bytes()),
 				tc.baseFee,
+				receiptsRoot,
 			)
 
 			if tc.expPass {

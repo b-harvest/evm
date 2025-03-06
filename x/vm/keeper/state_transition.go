@@ -198,6 +198,21 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 		k.SetLogSizeTransient(ctx, uint64(txConfig.LogIndex)+uint64(len(logs)))
 	}
 
+	// receipt is stored in transient store
+	status := ethtypes.ReceiptStatusFailed
+	if !res.Failed() {
+		status = ethtypes.ReceiptStatusSuccessful
+	}
+
+	receipt := &ethtypes.Receipt{
+		Type:              tx.Type(),
+		PostState:         []byte{},
+		Status:            status,
+		CumulativeGasUsed: res.GasUsed,
+		Bloom:             ethtypes.BytesToBloom(ethtypes.LogsBloom(logs)),
+		Logs:              logs,
+	}
+	k.SetReceiptTransient(ctx, tx.Hash(), uint64(txConfig.TxIndex), receipt)
 	k.SetTxIndexTransient(ctx, uint64(txConfig.TxIndex)+1)
 
 	totalGasUsed, err := k.AddTransientGasUsed(ctx, res.GasUsed)

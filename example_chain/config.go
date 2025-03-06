@@ -4,7 +4,6 @@
 package example_chain
 
 import (
-	"fmt"
 	"strings"
 
 	"cosmossdk.io/math"
@@ -52,7 +51,8 @@ func EvmAppOptions(chainID string) error {
 	fmt.Printf("ChainID: %v\n", chainID)
 	coinInfo, found := ChainsCoinInfo[id]
 	if !found {
-		return fmt.Errorf("unknown chain id: %s", id)
+		// default to 18 decimals
+		coinInfo = ChainsCoinInfo[EighteenDecimalsChainID]
 	}
 
 	// set the denom info for the chain
