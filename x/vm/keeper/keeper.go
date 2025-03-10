@@ -195,10 +195,33 @@ func (k *Keeper) GetReceiptsRoot(ctx sdk.Context, blockNumber int64) (common.Has
 	return common.BytesToHash(bz), nil
 }
 
+// GetAllReceiptsRoots returns all the receipts roots stored in the KVStore.
+func (k *Keeper) GetAllReceiptsRoots(ctx sdk.Context) ([]types.ReceiptsRoot, error) {
+	store := ctx.KVStore(k.storeKey)
+	iterator := storetypes.KVStorePrefixIterator(store, types.KeyPrefixReceiptsRoot)
+	defer iterator.Close()
+
+	var receiptRoots []types.ReceiptsRoot
+	for ; iterator.Valid(); iterator.Next() {
+		blockHeight, err := types.ParseReceiptsRootKey(iterator.Key())
+		if err != nil {
+			return nil, err
+		}
+
+		receiptRoot := types.ReceiptsRoot{
+			BlockHeight: blockHeight,
+			ReceiptRoot: common.BytesToHash(iterator.Value()).Hex(),
+		}
+		receiptRoots = append(receiptRoots, receiptRoot)
+	}
+
+	return receiptRoots, nil
+}
+
 // SetReceiptsRoot sets the receipts root hash for the given block number and hash.
-func (k *Keeper) SetReceiptsRoot(ctx sdk.Context, receiptsRoot common.Hash) {
+func (k *Keeper) SetReceiptsRoot(ctx sdk.Context, blockHeight uint64, receiptsRoot common.Hash) {
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixReceiptsRoot)
-	heightBz := sdk.Uint64ToBigEndian(uint64(ctx.BlockHeight())) //nolint:gosec // G115 // won't exceed uint64
+	heightBz := sdk.Uint64ToBigEndian(blockHeight)
 	store.Set(heightBz, receiptsRoot.Bytes())
 
 	k.Logger(ctx).Debug(

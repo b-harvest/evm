@@ -1,11 +1,14 @@
 package types
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/suite"
+
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
 type GenesisTestSuite struct {
@@ -14,6 +17,9 @@ type GenesisTestSuite struct {
 	address string
 	hash    common.Hash
 	code    string
+
+	validReceiptsRoot   string
+	invalidReceiptsRoot string
 }
 
 func (suite *GenesisTestSuite) SetupTest() {
@@ -23,6 +29,9 @@ func (suite *GenesisTestSuite) SetupTest() {
 	suite.address = common.BytesToAddress(priv.PubKey().Address().Bytes()).String()
 	suite.hash = common.BytesToHash([]byte("hash"))
 	suite.code = common.Bytes2Hex([]byte{1, 2, 3})
+
+	suite.validReceiptsRoot = ethtypes.EmptyRootHash.String()
+	suite.invalidReceiptsRoot = "0x" + strings.Repeat("0", 63)
 }
 
 func TestGenesisTestSuite(t *testing.T) {
@@ -106,13 +115,19 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 						},
 					},
 				},
+				ReceiptsRoots: []ReceiptsRoot{
+					{
+						BlockHeight: 1,
+						ReceiptRoot: suite.validReceiptsRoot,
+					},
+				},
 				Params: DefaultParams(),
 			},
 			expPass: true,
 		},
 		{
 			name:     "copied genesis",
-			genState: NewGenesisState(defaultGenesis.Params, defaultGenesis.Accounts),
+			genState: NewGenesisState(defaultGenesis.Params, defaultGenesis.Accounts, defaultGenesis.ReceiptsRoots),
 			expPass:  true,
 		},
 		{
@@ -126,6 +141,12 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 						Storage: Storage{
 							{Key: suite.hash.String()},
 						},
+					},
+				},
+				ReceiptsRoots: []ReceiptsRoot{
+					{
+						BlockHeight: 1,
+						ReceiptRoot: suite.validReceiptsRoot,
 					},
 				},
 				Params: DefaultParams(),
@@ -153,6 +174,29 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 						},
 					},
 				},
+			},
+			expPass: false,
+		},
+		{
+			name: "invalid receipts root",
+			genState: &GenesisState{
+				Accounts: []GenesisAccount{
+					{
+						Address: suite.address,
+
+						Code: suite.code,
+						Storage: Storage{
+							{Key: suite.hash.String()},
+						},
+					},
+				},
+				ReceiptsRoots: []ReceiptsRoot{
+					{
+						BlockHeight: 1,
+						ReceiptRoot: suite.invalidReceiptsRoot,
+					},
+				},
+				Params: DefaultParams(),
 			},
 			expPass: false,
 		},

@@ -16,6 +16,9 @@ message GenesisState {
   // params defines all the parameters of the module.
   Params params = 2
       [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  // receipts is an array containing the ethereum genesis receipts. 
+  repeated ReceiptsRoot receipts_roots = 3
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
 }
 
 // GenesisAccount defines an account to be initialized in the genesis state.
@@ -32,4 +35,12 @@ message GenesisAccount {
     (amino.dont_omitempty) = true,
     (gogoproto.castrepeated) = "Storage"
   ];
+}
+
+// ReceiptsRoot defines the root of the receipt of evm txs.
+message ReceiptsRoot {
+  // block_height is the height of the block.
+  uint64 block_height = 1;
+  // receipt_root is the root of the receipt trie of the block.
+  string receipt_root = 2;
 }

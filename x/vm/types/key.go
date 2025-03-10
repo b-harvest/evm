@@ -1,7 +1,11 @@
 package types
 
 import (
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const (
@@ -67,4 +71,18 @@ func AddressStoragePrefix(address common.Address) []byte {
 // StateKey defines the full key under which an account state is stored.
 func StateKey(address common.Address, key []byte) []byte {
 	return append(AddressStoragePrefix(address), key...)
+}
+
+func ParseReceiptsRootKey(key []byte) (uint64, error) {
+	expectedKeyLen := len(KeyPrefixReceiptsRoot) + 8
+	if len(key) != expectedKeyLen {
+		return 0, fmt.Errorf("invalid receipts root key length: %d", len(key))
+	}
+
+	prefix := key[0]
+	if prefix != prefixReceiptsRoot {
+		return 0, fmt.Errorf("invalid receipts root key prefix: %d", prefix)
+	}
+
+	return sdk.BigEndianToUint64(key[1:]), nil
 }
