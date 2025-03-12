@@ -212,7 +212,10 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 		Bloom:             ethtypes.BytesToBloom(ethtypes.LogsBloom(logs)),
 		Logs:              logs,
 	}
-	k.SetReceiptTransient(ctx, tx.Hash(), uint64(txConfig.TxIndex), receipt)
+	err = k.SetReceiptTransient(ctx, tx.Hash(), uint64(txConfig.TxIndex), receipt)
+	if err != nil {
+		return nil, errorsmod.Wrap(err, "failed to set receipt transient")
+	}
 	k.SetTxIndexTransient(ctx, uint64(txConfig.TxIndex)+1)
 
 	totalGasUsed, err := k.AddTransientGasUsed(ctx, res.GasUsed)

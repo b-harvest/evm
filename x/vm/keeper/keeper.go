@@ -249,36 +249,37 @@ func (k Keeper) GetReceiptsTransient(ctx sdk.Context) []*ethtypes.Receipt {
 }
 
 // GetReceiptTransient returns receipt bytes for the current block height
-func (k Keeper) GetReceiptTransient(ctx sdk.Context, txHash common.Hash) *ethtypes.Receipt {
+func (k Keeper) GetReceiptTransient(ctx sdk.Context, txHash common.Hash) (*ethtypes.Receipt, error) {
 	store := prefix.NewStore(ctx.TransientStore(k.transientKey), types.KeyPrefixTransientReceipt)
 	txIndex := k.GetTxIndexByTxHashTransient(ctx, txHash)
 	bz := store.Get(sdk.Uint64ToBigEndian(txIndex))
 	if len(bz) == 0 {
-		return nil
+		return nil, fmt.Errorf("receipt not found, txIndex: %d, txHash: %s", txIndex, txHash.Hex())
 	}
 
 	var receipt *ethtypes.Receipt
 	err := rlp.DecodeBytes(bz, &receipt)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return receipt
+	return receipt, nil
 }
 
 // SetReceiptTransient sets the given receipt bytes to the transient store. This value is reset on
 // every block.
-func (k Keeper) SetReceiptTransient(ctx sdk.Context, txHash common.Hash, txIndex uint64, receipt *ethtypes.Receipt) {
+func (k Keeper) SetReceiptTransient(ctx sdk.Context, txHash common.Hash, txIndex uint64, receipt *ethtypes.Receipt) error {
 	store := prefix.NewStore(ctx.TransientStore(k.transientKey), types.KeyPrefixTransientReceipt)
 	// rlp.EncodeToBytes only encode PostStateOrStatus, CumulativeGasUsed, LogsBloom, Logs, and ContractAddress
 	// for Logs, only Address, Topics, and Data are encoded
 	bz, err := rlp.EncodeToBytes(receipt)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	store.Set(sdk.Uint64ToBigEndian(txIndex), bz)
 	k.SetTxIndexByTxHashTransient(ctx, txHash, txIndex)
+	return nil
 }
 
 // ----------------------------------------------------------------------------

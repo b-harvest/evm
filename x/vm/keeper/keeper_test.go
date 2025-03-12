@@ -188,7 +188,8 @@ func (suite *KeeperTestSuite) TestGetReceiptTransient() {
 	bloom := ethtypes.BytesToBloom(ethtypes.LogsBloom(logs))
 
 	// 3. Get receipt from transient store and compare
-	receiptTransient := suite.network.App.EVMKeeper.GetReceiptTransient(suite.network.GetContext(), common.HexToHash(res.Hash))
+	receiptTransient, err := suite.network.App.EVMKeeper.GetReceiptTransient(suite.network.GetContext(), common.HexToHash(res.Hash))
+	suite.Require().NoError(err)
 	suite.Require().Equal(uint8(ethtypes.DynamicFeeTxType), receiptTransient.Type)
 	suite.Require().Equal(ethtypes.ReceiptStatusSuccessful, receiptTransient.Status)
 	suite.Require().Equal(res.GasUsed, receiptTransient.CumulativeGasUsed)
