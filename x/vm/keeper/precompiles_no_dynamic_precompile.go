@@ -1,13 +1,13 @@
-//go:build !no_dynamic_precompiles
-// +build !no_dynamic_precompiles
+//go:build no_dynamic_precompiles
+// +build no_dynamic_precompiles
 
 package keeper
 
 import (
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/evm/x/vm/core/vm"
-	"github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/evmos/os/x/evm/core/vm"
+	"github.com/evmos/os/x/evm/types"
 )
 
 type Precompiles struct {
@@ -33,18 +33,7 @@ func (k *Keeper) GetPrecompileInstance(
 			Addresses: []common.Address{precompile.Address()},
 		}, found, nil
 	}
-
-	// Get the precompile from the dynamic precompiles
-	precompile, found, err := k.erc20Keeper.GetERC20PrecompileInstance(ctx, address)
-	if err != nil || !found {
-		return nil, false, err
-	}
-	addressMap := make(map[common.Address]vm.PrecompiledContract)
-	addressMap[address] = precompile
-	return &Precompiles{
-		Map:       addressMap,
-		Addresses: []common.Address{precompile.Address()},
-	}, found, nil
+	return nil, false, nil
 }
 
 // GetPrecompilesCallHook returns a closure that can be used to instantiate the EVM with a specific
