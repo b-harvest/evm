@@ -4,6 +4,7 @@
 package example_chain
 
 import (
+	"fmt"
 	"strings"
 
 	"cosmossdk.io/math"
