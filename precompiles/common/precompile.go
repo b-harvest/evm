@@ -23,7 +23,7 @@ type Precompile struct {
 	KvGasConfig          storetypes.GasConfig
 	TransientKVGasConfig storetypes.GasConfig
 	address              common.Address
-	journalEntries       []balanceChangeEntry
+	journalEntries       []BalanceChangeEntry
 }
 
 // Operation is a type that defines if the precompile call
@@ -35,14 +35,14 @@ const (
 	Add
 )
 
-type balanceChangeEntry struct {
+type BalanceChangeEntry struct {
 	Account common.Address
 	Amount  *big.Int
 	Op      Operation
 }
 
-func NewBalanceChangeEntry(acc common.Address, amt *big.Int, op Operation) balanceChangeEntry { //nolint:revive
-	return balanceChangeEntry{acc, amt, op}
+func NewBalanceChangeEntry(acc common.Address, amt *big.Int, op Operation) BalanceChangeEntry { //nolint:revive
+	return BalanceChangeEntry{acc, amt, op}
 }
 
 // snapshot contains all state and events previous to the precompile call
@@ -198,7 +198,7 @@ func (p Precompile) AddJournalEntries(stateDB *statedb.StateDB, s snapshot) erro
 // as the journalEntries field of the precompile.
 // These entries will be added to the stateDB's journal
 // when calling the AddJournalEntries function
-func (p *Precompile) SetBalanceChangeEntries(entries ...balanceChangeEntry) {
+func (p *Precompile) SetBalanceChangeEntries(entries ...BalanceChangeEntry) {
 	p.journalEntries = entries
 }
 

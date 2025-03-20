@@ -19,6 +19,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
+
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
 type GenesisTestSuite struct {
@@ -83,6 +85,12 @@ func TestInitGenesis(t *testing.T) {
 						},
 					},
 				},
+				ReceiptsRoots: []types.ReceiptsRoot{
+					{
+						BlockHeight: 1,
+						ReceiptRoot: ethtypes.EmptyRootHash.String(),
+					},
+				},
 			},
 			expPanic: false,
 		},
@@ -94,6 +102,12 @@ func TestInitGenesis(t *testing.T) {
 				Accounts: []types.GenesisAccount{
 					{
 						Address: address.String(),
+					},
+				},
+				ReceiptsRoots: []types.ReceiptsRoot{
+					{
+						BlockHeight: 1,
+						ReceiptRoot: ethtypes.EmptyRootHash.String(),
 					},
 				},
 			},
@@ -113,6 +127,12 @@ func TestInitGenesis(t *testing.T) {
 						Code:    "",
 					},
 				},
+				ReceiptsRoots: []types.ReceiptsRoot{
+					{
+						BlockHeight: 1,
+						ReceiptRoot: ethtypes.EmptyRootHash.String(),
+					},
+				},
 			},
 			expPanic: false,
 		},
@@ -128,6 +148,12 @@ func TestInitGenesis(t *testing.T) {
 					{
 						Address: address.String(),
 						Code:    "1234",
+					},
+				},
+				ReceiptsRoots: []types.ReceiptsRoot{
+					{
+						BlockHeight: 1,
+						ReceiptRoot: ethtypes.EmptyRootHash.String(),
 					},
 				},
 			},

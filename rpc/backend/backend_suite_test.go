@@ -24,6 +24,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/trie"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -133,6 +134,7 @@ func (suite *BackendTestSuite) buildFormattedBlock(
 
 	root := common.Hash{}.Bytes()
 	receipt := ethtypes.NewReceipt(root, false, gasUsed.Uint64())
+	receiptsRoot := ethtypes.DeriveSha(ethtypes.Receipts([]*ethtypes.Receipt{}), trie.NewStackTrie(nil))
 	bloom := ethtypes.CreateBloom(ethtypes.Receipts{receipt})
 
 	ethRPCTxs := []interface{}{}
@@ -162,6 +164,7 @@ func (suite *BackendTestSuite) buildFormattedBlock(
 		bloom,
 		common.BytesToAddress(validator.Bytes()),
 		baseFee,
+		receiptsRoot,
 	)
 }
 

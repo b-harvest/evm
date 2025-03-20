@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"math/big"
 
+	abcitypes "github.com/cometbft/cometbft/abci/types"
 	"github.com/stretchr/testify/require"
 
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,10 +15,13 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/cosmos/evm/contracts"
 	servercfg "github.com/cosmos/evm/server/config"
+	"github.com/cosmos/evm/testutil/integration/os/factory"
 	utiltx "github.com/cosmos/evm/testutil/tx"
 	"github.com/cosmos/evm/x/vm/keeper/testdata"
 	"github.com/cosmos/evm/x/vm/statedb"
+	"github.com/cosmos/evm/x/vm/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
@@ -204,4 +209,25 @@ func (suite *KeeperTestSuite) DeployTestMessageCall(t require.TestingT) common.A
 	require.NoError(t, err)
 	require.Empty(t, rsp.VmError)
 	return crypto.CreateAddress(addr, nonce)
+}
+
+func (suite *KeeperTestSuite) MintERC20Token(privKey cryptotypes.PrivKey, contractAddr, to common.Address, amount *big.Int) (abcitypes.ExecTxResult, error) {
+	res, err := suite.factory.ExecuteContractCall(
+		privKey,
+		types.EvmTxArgs{
+			GasTipCap: big.NewInt(0),
+			GasFeeCap: big.NewInt(1),
+			To:        &contractAddr,
+		},
+		factory.CallArgs{
+			ContractABI: contracts.ERC20MinterBurnerDecimalsContract.ABI,
+			MethodName:  "mint",
+			Args:        []interface{}{to, amount},
+		},
+	)
+	if err != nil {
+		return res, err
+	}
+
+	return res, nil
 }

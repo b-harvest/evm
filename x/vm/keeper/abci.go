@@ -5,6 +5,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/trie"
 )
 
 // BeginBlock emits a base fee event which will be adjusted to the evm decimals
@@ -40,6 +41,14 @@ func (k *Keeper) EndBlock(ctx sdk.Context) error {
 
 	bloom := ethtypes.BytesToBloom(k.GetBlockBloomTransient(infCtx).Bytes())
 	k.EmitBlockBloomEvent(infCtx, bloom)
+
+	receipts := k.GetReceiptsTransient(infCtx)
+	receiptsRoot := ethtypes.EmptyRootHash
+	if len(receipts) != 0 {
+		receiptsRoot = ethtypes.DeriveSha(ethtypes.Receipts(receipts), trie.NewStackTrie(nil))
+	}
+	k.SetReceiptsRoot(ctx, uint64(ctx.BlockHeight()), receiptsRoot)
+	k.EmitReceiptsRootEvent(ctx, receiptsRoot)
 
 	return nil
 }

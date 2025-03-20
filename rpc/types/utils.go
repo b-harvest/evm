@@ -106,7 +106,7 @@ func BlockMaxGasFromConsensusParams(goCtx context.Context, clientCtx client.Cont
 func FormatBlock(
 	header cmttypes.Header, size int, gasLimit int64,
 	gasUsed *big.Int, transactions []interface{}, bloom ethtypes.Bloom,
-	validatorAddr common.Address, baseFee *big.Int,
+	validatorAddr common.Address, baseFee *big.Int, receiptsRoot common.Hash,
 ) map[string]interface{} {
 	var transactionsRoot common.Hash
 	if len(transactions) == 0 {
@@ -132,7 +132,7 @@ func FormatBlock(
 		"gasUsed":          (*hexutil.Big)(gasUsed),
 		"timestamp":        hexutil.Uint64(header.Time.Unix()), //nolint:gosec // G115 // won't exceed uint64
 		"transactionsRoot": transactionsRoot,
-		"receiptsRoot":     ethtypes.EmptyRootHash,
+		"receiptsRoot":     receiptsRoot,
 
 		"uncles":          []common.Hash{},
 		"transactions":    transactions,

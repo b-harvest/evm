@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"fmt"
 	"math/big"
 
 	errorsmod "cosmossdk.io/errors"
@@ -19,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // Keeper grants access to the EVM module state and implements the go-ethereum StateDB interface.
@@ -152,6 +154,135 @@ func (k Keeper) SetBlockBloomTransient(ctx sdk.Context, bloom *big.Int) {
 }
 
 // ----------------------------------------------------------------------------
+// Receipts
+// ----------------------------------------------------------------------------
+
+// EmitReceipsRootEvent emit receipts root events
+func (k Keeper) EmitReceiptsRootEvent(ctx sdk.Context, receiptsRoot common.Hash) {
+	ctx.EventManager().EmitEvent(
+		sdk.NewEvent(
+			types.EventTypeReceiptsRoot,
+			sdk.NewAttribute(types.AttributeKeyEthereumReceiptsRoot, string(receiptsRoot.Bytes())),
+		),
+	)
+}
+
+// HasReceipts verifies the existence of root hash of all the transaction receipts belonging
+// to a block.
+func (k *Keeper) HasReceiptsRoot(ctx sdk.Context, blockNumber int64) bool {
+	if blockNumber < 1 {
+		return false
+	}
+
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixReceiptsRoot)
+	heightBz := sdk.Uint64ToBigEndian(uint64(blockNumber))
+	return store.Has(heightBz)
+}
+
+// GetReceiptsRoot loads the receipts root from the database for the given block number and hash.
+func (k *Keeper) GetReceiptsRoot(ctx sdk.Context, blockNumber int64) (common.Hash, error) {
+	if blockNumber < 1 {
+		return ethtypes.EmptyRootHash, fmt.Errorf("block number must be greater than 0")
+	}
+
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixReceiptsRoot)
+	heightBz := sdk.Uint64ToBigEndian(uint64(blockNumber))
+	bz := store.Get(heightBz)
+	if len(bz) == 0 {
+		return ethtypes.EmptyRootHash, nil
+	}
+
+	return common.BytesToHash(bz), nil
+}
+
+// GetAllReceiptsRoots returns all the receipts roots stored in the KVStore.
+func (k *Keeper) GetAllReceiptsRoots(ctx sdk.Context) ([]types.ReceiptsRoot, error) {
+	store := ctx.KVStore(k.storeKey)
+	iterator := storetypes.KVStorePrefixIterator(store, types.KeyPrefixReceiptsRoot)
+	defer iterator.Close()
+
+	var receiptRoots []types.ReceiptsRoot
+	for ; iterator.Valid(); iterator.Next() {
+		blockHeight, err := types.ParseReceiptsRootKey(iterator.Key())
+		if err != nil {
+			return nil, err
+		}
+
+		receiptRoot := types.ReceiptsRoot{
+			BlockHeight: blockHeight,
+			ReceiptRoot: common.BytesToHash(iterator.Value()).Hex(),
+		}
+		receiptRoots = append(receiptRoots, receiptRoot)
+	}
+
+	return receiptRoots, nil
+}
+
+// SetReceiptsRoot sets the receipts root hash for the given block number and hash.
+func (k *Keeper) SetReceiptsRoot(ctx sdk.Context, blockHeight uint64, receiptsRoot common.Hash) {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixReceiptsRoot)
+	heightBz := sdk.Uint64ToBigEndian(blockHeight)
+	store.Set(heightBz, receiptsRoot.Bytes())
+
+	k.Logger(ctx).Debug(
+		"receipts root updated",
+		"receipts root", receiptsRoot.Hex(),
+	)
+}
+
+// GetReceiptsTransient returns bytes of receipt slice for the current block height
+func (k Keeper) GetReceiptsTransient(ctx sdk.Context) []*ethtypes.Receipt {
+	store := ctx.TransientStore(k.transientKey)
+	iterator := storetypes.KVStorePrefixIterator(store, types.KeyPrefixTransientReceipt)
+	defer iterator.Close()
+
+	var receipts []*ethtypes.Receipt
+	for ; iterator.Valid(); iterator.Next() {
+		var receipt ethtypes.Receipt
+		if err := rlp.DecodeBytes(iterator.Value(), &receipt); err != nil {
+			return []*ethtypes.Receipt{}
+		}
+		receipts = append(receipts, &receipt)
+	}
+
+	return receipts
+}
+
+// GetReceiptTransient returns receipt bytes for the current block height
+func (k Keeper) GetReceiptTransient(ctx sdk.Context, txHash common.Hash) (*ethtypes.Receipt, error) {
+	store := prefix.NewStore(ctx.TransientStore(k.transientKey), types.KeyPrefixTransientReceipt)
+	txIndex := k.GetTxIndexByTxHashTransient(ctx, txHash)
+	bz := store.Get(sdk.Uint64ToBigEndian(txIndex))
+	if len(bz) == 0 {
+		return nil, fmt.Errorf("receipt not found, txIndex: %d, txHash: %s", txIndex, txHash.Hex())
+	}
+
+	var receipt *ethtypes.Receipt
+	err := rlp.DecodeBytes(bz, &receipt)
+	if err != nil {
+		return nil, err
+	}
+
+	return receipt, nil
+}
+
+// SetReceiptTransient sets the given receipt bytes to the transient store. This value is reset on
+// every block.
+func (k Keeper) SetReceiptTransient(ctx sdk.Context, txHash common.Hash, txIndex uint64, receipt *ethtypes.Receipt) error {
+	store := prefix.NewStore(ctx.TransientStore(k.transientKey), types.KeyPrefixTransientReceipt)
+	// rlp.EncodeToBytes only encode PostStateOrStatus, CumulativeGasUsed, LogsBloom, Logs, and ContractAddress
+	// for Logs, only Address, Topics, and Data are encoded
+	bz, err := rlp.EncodeToBytes(receipt)
+	if err != nil {
+		return err
+	}
+
+	store.Set(sdk.Uint64ToBigEndian(txIndex), bz)
+	k.SetTxIndexByTxHashTransient(ctx, txHash, txIndex)
+	return nil
+}
+
+// ----------------------------------------------------------------------------
 // Tx
 // ----------------------------------------------------------------------------
 
@@ -165,6 +296,16 @@ func (k Keeper) SetTxIndexTransient(ctx sdk.Context, index uint64) {
 func (k Keeper) GetTxIndexTransient(ctx sdk.Context) uint64 {
 	store := ctx.TransientStore(k.transientKey)
 	return sdk.BigEndianToUint64(store.Get(types.KeyPrefixTransientTxIndex))
+}
+
+func (k Keeper) SetTxIndexByTxHashTransient(ctx sdk.Context, txHash common.Hash, index uint64) {
+	store := prefix.NewStore(ctx.TransientStore(k.transientKey), types.KeyPrefixTransientTxIndexByTxHash)
+	store.Set(txHash.Bytes(), sdk.Uint64ToBigEndian(index))
+}
+
+func (k Keeper) GetTxIndexByTxHashTransient(ctx sdk.Context, txHash common.Hash) uint64 {
+	store := prefix.NewStore(ctx.TransientStore(k.transientKey), types.KeyPrefixTransientTxIndexByTxHash)
+	return sdk.BigEndianToUint64(store.Get(txHash.Bytes()))
 }
 
 // ----------------------------------------------------------------------------

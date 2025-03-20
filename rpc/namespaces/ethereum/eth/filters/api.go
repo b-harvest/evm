@@ -43,6 +43,8 @@ type Backend interface {
 
 	BloomStatus() (uint64, uint64)
 
+	ReceiptsRoot(blockRes *coretypes.ResultBlockResults) (common.Hash, error)
+
 	RPCFilterCap() int32
 	RPCLogsCap() int32
 	RPCBlockRangeCap() int32
@@ -340,8 +342,22 @@ func (api *PublicFilterAPI) NewHeads(ctx context.Context) (*rpc.Subscription, er
 
 				baseFee := types.BaseFeeFromEvents(data.ResultFinalizeBlock.Events)
 
+				blockNum := data.Block.Header.Height
+				blockRes, err := api.backend.TendermintBlockResultByNumber(&blockNum)
+				if err != nil {
+					api.logger.Error("failed to get block result", "error", err)
+					return
+				}
+
+				receiptsRoot, err := api.backend.ReceiptsRoot(blockRes)
+				if err != nil {
+					api.logger.Error("failed to get receipts root", "error", err)
+					return
+				}
+
 				// TODO: fetch bloom from events
 				header := types.EthHeaderFromTendermint(data.Block.Header, ethtypes.Bloom{}, baseFee)
+				header.ReceiptHash = receiptsRoot
 				_ = notifier.Notify(rpcSub.ID, header) // #nosec G703
 			case <-rpcSub.Err():
 				headersSub.Unsubscribe(api.events)

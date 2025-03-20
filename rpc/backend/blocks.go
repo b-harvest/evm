@@ -302,7 +302,13 @@ func (b *Backend) HeaderByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Heade
 		b.logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", resBlock.Block.Height, "error", err)
 	}
 
+	receiptsRoot, err := b.ReceiptsRoot(blockRes)
+	if err != nil {
+		b.logger.Debug("failed to query ReceiptsRoot", "height", blockRes.Height, "error", err.Error())
+	}
+
 	ethHeader := rpctypes.EthHeaderFromTendermint(resBlock.Block.Header, bloom, baseFee)
+	ethHeader.ReceiptHash = receiptsRoot
 	return ethHeader, nil
 }
 
@@ -335,7 +341,13 @@ func (b *Backend) HeaderByHash(blockHash common.Hash) (*ethtypes.Header, error) 
 		b.logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", height, "error", err)
 	}
 
+	receiptsRoot, err := b.ReceiptsRoot(blockRes)
+	if err != nil {
+		b.logger.Debug("failed to query ReceiptsRoot", "height", blockRes.Height, "error", err.Error())
+	}
+
 	ethHeader := rpctypes.EthHeaderFromTendermint(*resHeader.Header, bloom, baseFee)
+	ethHeader.ReceiptHash = receiptsRoot
 	return ethHeader, nil
 }
 
@@ -353,6 +365,22 @@ func (b *Backend) BlockBloom(blockRes *tmrpctypes.ResultBlockResults) (ethtypes.
 		}
 	}
 	return ethtypes.Bloom{}, errors.New("block bloom event is not found")
+}
+
+// ReceiptsRoot query receipts root filter from block results
+func (b *Backend) ReceiptsRoot(blockRes *tmrpctypes.ResultBlockResults) (common.Hash, error) {
+	for _, event := range blockRes.FinalizeBlockEvents {
+		if event.Type != evmtypes.EventTypeReceiptsRoot {
+			continue
+		}
+
+		for _, attr := range event.Attributes {
+			if attr.Key == evmtypes.AttributeKeyEthereumReceiptsRoot {
+				return common.Hash([]byte(attr.Value)), nil
+			}
+		}
+	}
+	return ethtypes.EmptyRootHash, errors.New("block bloom event is not found")
 }
 
 // RPCBlockFromTendermintBlock returns a JSON-RPC compatible Ethereum block from a
@@ -402,6 +430,11 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 		b.logger.Debug("failed to query BlockBloom", "height", block.Height, "error", err.Error())
 	}
 
+	receiptsRoot, err := b.ReceiptsRoot(blockRes)
+	if err != nil {
+		b.logger.Debug("failed to query ReceiptsRoot", "height", block.Height, "error", err.Error())
+	}
+
 	req := &evmtypes.QueryValidatorAccountRequest{
 		ConsAddress: sdk.ConsAddress(block.Header.ProposerAddress).String(),
 	}
@@ -447,7 +480,7 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 	formattedBlock := rpctypes.FormatBlock(
 		block.Header, block.Size(),
 		gasLimit, new(big.Int).SetUint64(gasUsed),
-		ethRPCTxs, bloom, validatorAddr, baseFee,
+		ethRPCTxs, bloom, validatorAddr, baseFee, receiptsRoot,
 	)
 	return formattedBlock, nil
 }
@@ -499,7 +532,20 @@ func (b *Backend) EthBlockFromTendermintBlock(
 		txs[i] = ethMsg.AsTransaction()
 	}
 
-	// TODO: add tx receipts
+	receiptsRoot, err := b.ReceiptsRoot(blockRes)
+	if err != nil {
+		b.logger.Debug("failed to query ReceiptsRoot", "height", height, "error", err.Error())
+	}
+
+	if len(txs) == 0 {
+		ethHeader.TxHash = ethtypes.EmptyRootHash
+	} else {
+		ethHeader.TxHash = ethtypes.DeriveSha(ethtypes.Transactions(txs), trie.NewStackTrie(nil))
+	}
+	ethHeader.ReceiptHash = receiptsRoot
+	ethHeader.UncleHash = ethtypes.EmptyUncleHash
+
 	ethBlock := ethtypes.NewBlock(ethHeader, txs, nil, nil, trie.NewStackTrie(nil))
+	ethBlock.WithSeal(ethHeader)
 	return ethBlock, nil
 }
