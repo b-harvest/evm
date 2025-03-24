@@ -20,7 +20,7 @@ require (
 	github.com/cometbft/cometbft v0.38.17
 	github.com/cosmos/cosmos-db v1.1.1
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5
-	github.com/cosmos/cosmos-sdk v0.50.11
+	github.com/cosmos/cosmos-sdk v0.50.13
 	github.com/cosmos/evm/example_chain v0.0.0-20240924163020-b2a4187dad50
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.7.0
@@ -254,18 +254,14 @@ replace github.com/cosmos/evm/example_chain => ./example_chain
 
 // b-harvest fork
 replace (
-	// need this replace to pick up the store changes (Copy func) in our cosmos-sdk fork
 	cosmossdk.io/store => github.com/b-harvest/cosmos-sdk/store v0.0.0-20250324051345-ddad0e6f75cb
-	// use cosmos fork of cometbft
 	github.com/cometbft/cometbft => github.com/b-harvest/cometbft v0.0.0-20250324035653-78e589510249
-	// use Cosmos-SDK fork to enable Ledger functionality
 	github.com/cosmos/cosmos-sdk => github.com/b-harvest/cosmos-sdk v0.0.0-20250324051359-31fe6618dc61
 )
 
 replace (
 	// need this replace when importing cosmos/rosetta pkg
 	cosmossdk.io/core => cosmossdk.io/core v0.11.0
-
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
 	// use Evmos geth fork
