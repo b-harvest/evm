@@ -246,7 +246,7 @@ func checkTxBytes(app *app.ExampleChain, txEncoder sdk.TxEncoder, tx sdk.Tx) (ab
 	}
 
 	req := abci.RequestCheckTx{Tx: bz}
-	res, err := app.BaseApp.CheckTx(&req)
+	res, err := app.BaseApp.CheckTxSync(&req)
 	if err != nil {
 		return abci.ResponseCheckTx{}, err
 	}
