@@ -252,16 +252,22 @@ require (
 // replace for local development
 replace github.com/cosmos/evm/example_chain => ./example_chain
 
+// b-harvest fork
+replace (
+	// need this replace to pick up the store changes (Copy func) in our cosmos-sdk fork
+	cosmossdk.io/store => github.com/b-harvest/cosmos-sdk/store v0.0.0-20250324051345-ddad0e6f75cb
+	// use cosmos fork of cometbft
+	github.com/cometbft/cometbft => github.com/b-harvest/cometbft v0.0.0-20250324035653-78e589510249
+	// use Cosmos-SDK fork to enable Ledger functionality
+	github.com/cosmos/cosmos-sdk => github.com/b-harvest/cosmos-sdk v0.0.0-20250324051359-31fe6618dc61
+)
+
 replace (
 	// need this replace when importing cosmos/rosetta pkg
 	cosmossdk.io/core => cosmossdk.io/core v0.11.0
-	// need this replace to pick up the store changes (Copy func) in our cosmos-sdk fork
-	cosmossdk.io/store => github.com/b-harvest/cosmos-sdk/store v0.0.0-20250324051345-ddad0e6f75cb
 
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
-	// use Cosmos-SDK fork to enable Ledger functionality
-	github.com/cosmos/cosmos-sdk => github.com/b-harvest/cosmos-sdk v0.0.0-20250324051359-31fe6618dc61
 	// use Evmos geth fork
 	github.com/ethereum/go-ethereum => github.com/evmos/go-ethereum v1.10.26-evmos-rc4
 	// Security Advisory https://github.com/advisories/GHSA-h395-qcrw-5vmq
