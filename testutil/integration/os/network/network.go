@@ -345,7 +345,7 @@ func (n *IntegrationNetwork) Simulate(txBytes []byte) (*txtypes.SimulateResponse
 // CheckTx calls the BaseApp's CheckTx method with the given txBytes to the network and returns the response.
 func (n *IntegrationNetwork) CheckTx(txBytes []byte) (*abcitypes.ResponseCheckTx, error) {
 	req := &abcitypes.RequestCheckTx{Tx: txBytes}
-	res, err := n.app.BaseApp.CheckTx(req)
+	res, err := n.app.BaseApp.CheckTxSync(req)
 	if err != nil {
 		return nil, err
 	}
