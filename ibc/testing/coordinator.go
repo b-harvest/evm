@@ -10,17 +10,17 @@ import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	exampleapp "github.com/cosmos/evm/example_chain"
-	ibctesting "github.com/cosmos/ibc-go/v8/testing"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 	"github.com/stretchr/testify/require"
-)
 
-const DefaultFeeAmt = int64(150_000_000_000_000_000) // 0.15 ATOM
+	exampleapp "github.com/cosmos/evm/example_chain"
+)
 
 var globalStartTime = time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
 
 // NewCoordinator initializes Coordinator with N EVM TestChain's (Cosmos EVM apps) and M Cosmos chains (Simulation Apps)
 func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int) *ibctesting.Coordinator {
+	t.Helper()
 	chains := make(map[string]*ibctesting.TestChain)
 	coord := &ibctesting.Coordinator{
 		T:           t,
@@ -30,13 +30,12 @@ func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int) *ibctesting.Coo
 	for i := 1; i <= nEVMChains; i++ {
 		chainID := ibctesting.GetChainID(i)
 		// setup EVM chains
-		ibctesting.DefaultTestingAppInit = DefaultTestingAppInit(chainID)
+		ibctesting.DefaultTestingAppInit = SetupExampleApp
 		chains[chainID] = NewTestChain(t, coord, chainID)
 	}
 
 	// setup Cosmos chains
 	ibctesting.DefaultTestingAppInit = ibctesting.SetupTestingApp
-
 	for j := 1 + nEVMChains; j <= nEVMChains+mCosmosChains; j++ {
 		chainID := ibctesting.GetChainID(j)
 		chains[chainID] = ibctesting.NewTestChain(t, coord, chainID)
@@ -50,7 +49,7 @@ func NewCoordinator(t *testing.T, nEVMChains, mCosmosChains int) *ibctesting.Coo
 // SetupPath constructs a TM client, connection, and channel on both chains provided. It will
 // fail if any error occurs. The clientID's, TestConnections, and TestChannels are returned
 // for both chains. The channels created are connected to the ibc-transfer application.
-func SetupPath(coord *ibctesting.Coordinator, path *Path) {
+func SetupPath(coord *ibctesting.Coordinator, path *ibctesting.Path) {
 	SetupConnections(coord, path)
 
 	// channels can also be referenced through the returned connections
@@ -60,7 +59,7 @@ func SetupPath(coord *ibctesting.Coordinator, path *Path) {
 // SetupConnections is a helper function to create clients and the appropriate
 // connections on both the source and counterparty chain. It assumes the caller does not
 // anticipate any errors.
-func SetupConnections(coord *ibctesting.Coordinator, path *Path) {
+func SetupConnections(coord *ibctesting.Coordinator, path *ibctesting.Path) {
 	SetupClients(coord, path)
 
 	CreateConnections(coord, path)
@@ -69,7 +68,7 @@ func SetupConnections(coord *ibctesting.Coordinator, path *Path) {
 // CreateChannel constructs and executes channel handshake messages in order to create
 // OPEN channels on chainA and chainB. The function expects the channels to be successfully
 // opened otherwise testing will fail.
-func CreateChannels(coord *ibctesting.Coordinator, path *Path) {
+func CreateChannels(coord *ibctesting.Coordinator, path *ibctesting.Path) {
 	err := path.EndpointA.ChanOpenInit()
 	require.NoError(coord.T, err)
 
@@ -91,7 +90,7 @@ func CreateChannels(coord *ibctesting.Coordinator, path *Path) {
 // OPEN channels on chainA and chainB. The connection information of for chainA and chainB
 // are returned within a TestConnection struct. The function expects the connections to be
 // successfully opened otherwise testing will fail.
-func CreateConnections(coord *ibctesting.Coordinator, path *Path) {
+func CreateConnections(coord *ibctesting.Coordinator, path *ibctesting.Path) {
 	err := path.EndpointA.ConnOpenInit()
 	require.NoError(coord.T, err)
 
@@ -111,7 +110,7 @@ func CreateConnections(coord *ibctesting.Coordinator, path *Path) {
 
 // SetupClients is a helper function to create clients on both chains. It assumes the
 // caller does not anticipate any errors.
-func SetupClients(coord *ibctesting.Coordinator, path *Path) {
+func SetupClients(coord *ibctesting.Coordinator, path *ibctesting.Path) {
 	err := path.EndpointA.CreateClient()
 	require.NoError(coord.T, err)
 

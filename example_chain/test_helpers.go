@@ -23,7 +23,7 @@ import (
 	"github.com/cosmos/evm/cmd/config"
 	chainconfig "github.com/cosmos/evm/example_chain/evmd/config"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	ibctesting "github.com/cosmos/ibc-go/v8/testing"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 	"github.com/stretchr/testify/require"
 )
 

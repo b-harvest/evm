@@ -7,7 +7,7 @@ import (
 	cosmosante "github.com/cosmos/evm/ante/cosmos"
 	evmante "github.com/cosmos/evm/ante/evm"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	ibcante "github.com/cosmos/ibc-go/v8/modules/core/ante"
+	ibcante "github.com/cosmos/ibc-go/v10/modules/core/ante"
 )
 
 // newCosmosAnteHandler creates the default ante handler for Cosmos transactions

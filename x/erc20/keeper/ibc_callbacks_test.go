@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"cosmossdk.io/math"
+
 	"github.com/cosmos/evm/x/erc20/keeper"
 
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
@@ -15,14 +16,15 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/testutil"
 
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	ibcgotesting "github.com/cosmos/ibc-go/v8/testing"
-	ibcmock "github.com/cosmos/ibc-go/v8/testing/mock"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	ibcgotesting "github.com/cosmos/ibc-go/v10/testing"
+	ibcmock "github.com/cosmos/ibc-go/v10/testing/mock"
 
 	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/x/erc20/types"
@@ -48,7 +50,7 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 	// Setup Cosmos <=> Cosmos EVM IBC relayer
 	sourceChannel := "channel-292"
 	cosmosEVMChannel := "channel-3"
-	path := fmt.Sprintf("%s/%s", transfertypes.PortID, cosmosEVMChannel)
+	hop := transfertypes.NewHop(transfertypes.PortID, cosmosEVMChannel)
 
 	timeoutHeight := clienttypes.NewHeight(0, 100)
 	disabledTimeoutTimestamp := uint64(0)
@@ -236,11 +238,8 @@ func (suite *KeeperTestSuite) TestOnRecvPacket() {
 			ctx = suite.network.GetContext()
 
 			// Set Denom Trace
-			denomTrace := transfertypes.DenomTrace{
-				Path:      path,
-				BaseDenom: registeredDenom,
-			}
-			suite.network.App.TransferKeeper.SetDenomTrace(ctx, denomTrace)
+			denom := transfertypes.NewDenom(registeredDenom, hop)
+			suite.network.App.TransferKeeper.SetDenom(ctx, denom)
 
 			// Set Cosmos Channel
 			channel := channeltypes.Channel{

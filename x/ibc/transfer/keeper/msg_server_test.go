@@ -4,18 +4,20 @@ import (
 	"fmt"
 
 	"cosmossdk.io/math"
+	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	"github.com/stretchr/testify/mock"
+
 	"github.com/cosmos/evm/testutil/integration/os/keyring"
 	testutils "github.com/cosmos/evm/testutil/integration/os/utils"
 	"github.com/cosmos/evm/x/ibc/transfer/keeper"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	"github.com/stretchr/testify/mock"
 )
 
 func (suite *KeeperTestSuite) TestTransfer() {
@@ -288,10 +290,14 @@ func (suite *KeeperTestSuite) TestTransfer() {
 			ctx = suite.network.GetContext()
 
 			suite.network.App.TransferKeeper = keeper.NewKeeper(
-				suite.network.App.AppCodec(), suite.network.App.GetKey(types.StoreKey), suite.network.App.GetSubspace(types.ModuleName),
+				suite.network.App.AppCodec(),
+				runtime.NewKVStoreService(suite.network.App.GetKey(types.StoreKey)),
+				suite.network.App.GetSubspace(types.ModuleName),
 				&MockICS4Wrapper{}, // ICS4 Wrapper
-				mockChannelKeeper, suite.network.App.IBCKeeper.PortKeeper,
-				suite.network.App.AccountKeeper, suite.network.App.BankKeeper, suite.network.App.ScopedTransferKeeper,
+				mockChannelKeeper,
+				suite.network.App.MsgServiceRouter(),
+				suite.network.App.AccountKeeper,
+				suite.network.App.BankKeeper,
 				suite.network.App.Erc20Keeper, // Add ERC20 Keeper for ERC20 transfers
 				authAddr,
 			)

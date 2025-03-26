@@ -5,11 +5,12 @@ import (
 	"slices"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/vm/statedb"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // RegisterERC20Extension creates and adds an ERC20 precompile interface for an IBC Coin.

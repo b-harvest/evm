@@ -186,7 +186,7 @@
           "type": "string"
         }
       ],
-      "name": "testDenomTrace",
+      "name": "testDenom",
       "outputs": [
         {
           "components": [
@@ -201,8 +201,8 @@
               "type": "string"
             }
           ],
-          "internalType": "struct DenomTrace",
-          "name": "denomTrace",
+          "internalType": "struct Denom",
+          "name": "Denom",
           "type": "tuple"
         }
       ],
@@ -244,7 +244,7 @@
           "type": "tuple"
         }
       ],
-      "name": "testDenomTraces",
+      "name": "testDenoms",
       "outputs": [
         {
           "components": [
@@ -259,8 +259,8 @@
               "type": "string"
             }
           ],
-          "internalType": "struct DenomTrace[]",
-          "name": "denomTraces",
+          "internalType": "struct Denom[]",
+          "name": "Denoms",
           "type": "tuple[]"
         },
         {
