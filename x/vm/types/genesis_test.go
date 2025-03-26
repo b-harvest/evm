@@ -115,19 +115,14 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 						},
 					},
 				},
-				ReceiptsRoots: []ReceiptsRoot{
-					{
-						BlockHeight: 1,
-						ReceiptRoot: suite.validReceiptsRoot,
-					},
-				},
-				Params: DefaultParams(),
+				ReceiptsRoot: suite.validReceiptsRoot,
+				Params:       DefaultParams(),
 			},
 			expPass: true,
 		},
 		{
 			name:     "copied genesis",
-			genState: NewGenesisState(defaultGenesis.Params, defaultGenesis.Accounts, defaultGenesis.ReceiptsRoots),
+			genState: NewGenesisState(defaultGenesis.Params, defaultGenesis.Accounts, defaultGenesis.ReceiptsRoot),
 			expPass:  true,
 		},
 		{
@@ -143,13 +138,8 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 						},
 					},
 				},
-				ReceiptsRoots: []ReceiptsRoot{
-					{
-						BlockHeight: 1,
-						ReceiptRoot: suite.validReceiptsRoot,
-					},
-				},
-				Params: DefaultParams(),
+				ReceiptsRoot: suite.validReceiptsRoot,
+				Params:       DefaultParams(),
 			},
 			expPass: false,
 		},
@@ -190,13 +180,8 @@ func (suite *GenesisTestSuite) TestValidateGenesis() {
 						},
 					},
 				},
-				ReceiptsRoots: []ReceiptsRoot{
-					{
-						BlockHeight: 1,
-						ReceiptRoot: suite.invalidReceiptsRoot,
-					},
-				},
-				Params: DefaultParams(),
+				ReceiptsRoot: suite.invalidReceiptsRoot,
+				Params:       DefaultParams(),
 			},
 			expPass: false,
 		},

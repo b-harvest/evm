@@ -47,7 +47,7 @@ func (k *Keeper) EndBlock(ctx sdk.Context) error {
 	if len(receipts) != 0 {
 		receiptsRoot = ethtypes.DeriveSha(ethtypes.Receipts(receipts), trie.NewStackTrie(nil))
 	}
-	k.SetReceiptsRoot(ctx, uint64(ctx.BlockHeight()), receiptsRoot)
+	k.SetReceiptsRoot(ctx, receiptsRoot)
 	k.EmitReceiptsRootEvent(ctx, receiptsRoot)
 
 	return nil

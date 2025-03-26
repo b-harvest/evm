@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/cosmos/evm/types"
 )
 
@@ -20,18 +22,18 @@ func (ga GenesisAccount) Validate() error {
 // chain config values.
 func DefaultGenesisState() *GenesisState {
 	return &GenesisState{
-		Accounts:      []GenesisAccount{},
-		Params:        DefaultParams(),
-		ReceiptsRoots: []ReceiptsRoot{},
+		Accounts:     []GenesisAccount{},
+		Params:       DefaultParams(),
+		ReceiptsRoot: ethtypes.EmptyRootHash.String(),
 	}
 }
 
 // NewGenesisState creates a new genesis state.
-func NewGenesisState(params Params, accounts []GenesisAccount, receiptsRoots []ReceiptsRoot) *GenesisState {
+func NewGenesisState(params Params, accounts []GenesisAccount, receiptsRoot string) *GenesisState {
 	return &GenesisState{
-		Accounts:      accounts,
-		Params:        params,
-		ReceiptsRoots: receiptsRoots,
+		Accounts:     accounts,
+		Params:       params,
+		ReceiptsRoot: receiptsRoot,
 	}
 }
 
@@ -49,24 +51,26 @@ func (gs GenesisState) Validate() error {
 		seenAccounts[acc.Address] = true
 	}
 
-	for _, receiptsRoot := range gs.ReceiptsRoots {
-		if receiptsRoot.BlockHeight < 1 {
-			return fmt.Errorf("invalid receipts root: block height cannot be 0")
-		}
-
-		if !strings.HasPrefix(receiptsRoot.ReceiptRoot, "0x") {
-			return fmt.Errorf("invalid receipts root: %s, should start with 0x", receiptsRoot.ReceiptRoot)
-		}
-
-		hexString := receiptsRoot.ReceiptRoot[2:]
-		if len(hexString) != 64 {
-			return fmt.Errorf("invalid receipts root: %s, should be 32 bytes (64 hex characters)", receiptsRoot.ReceiptRoot)
-		}
-
-		if _, err := hex.DecodeString(hexString); err != nil {
-			return fmt.Errorf("invalid receipts root: %s, invalid hex characters", receiptsRoot.ReceiptRoot)
-		}
+	if err := isReceiptsRootValid(gs.ReceiptsRoot); err != nil {
+		return err
 	}
 
 	return gs.Params.Validate()
+}
+
+func isReceiptsRootValid(receiptsRoot string) error {
+	if !strings.HasPrefix(receiptsRoot, "0x") {
+		return fmt.Errorf("invalid receipts root: %s, should start with 0x", receiptsRoot)
+	}
+
+	hexString := receiptsRoot[2:]
+	if len(hexString) != 64 {
+		return fmt.Errorf("invalid receipts root: %s, should be 32 bytes (64 hex characters)", receiptsRoot)
+	}
+
+	if _, err := hex.DecodeString(hexString); err != nil {
+		return fmt.Errorf("invalid receipts root: %s, invalid hex characters", receiptsRoot)
+	}
+
+	return nil
 }

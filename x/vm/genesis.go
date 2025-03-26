@@ -54,9 +54,7 @@ func InitGenesis(
 		}
 	}
 
-	for _, receiptsRoot := range data.ReceiptsRoots {
-		k.SetReceiptsRoot(ctx, uint64(receiptsRoot.BlockHeight), common.HexToHash(receiptsRoot.ReceiptRoot))
-	}
+	k.SetReceiptsRoot(ctx, common.HexToHash(data.ReceiptsRoot))
 
 	return []abci.ValidatorUpdate{}
 }
@@ -77,14 +75,14 @@ func ExportGenesis(ctx sdk.Context, k *keeper.Keeper) *types.GenesisState {
 		return false
 	})
 
-	receiptsRoots, err := k.GetAllReceiptsRoots(ctx)
+	receiptsRoot, err := k.GetReceiptsRoot(ctx)
 	if err != nil {
 		panic(err)
 	}
 
 	return &types.GenesisState{
-		Accounts:      ethGenAccounts,
-		ReceiptsRoots: receiptsRoots,
-		Params:        k.GetParams(ctx),
+		Accounts:     ethGenAccounts,
+		ReceiptsRoot: receiptsRoot.Hex(),
+		Params:       k.GetParams(ctx),
 	}
 }
