@@ -4,10 +4,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	sdkvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
+	ibcante "github.com/cosmos/ibc-go/v10/modules/core/ante"
+
 	cosmosante "github.com/cosmos/evm/ante/cosmos"
 	evmante "github.com/cosmos/evm/ante/evm"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	ibcante "github.com/cosmos/ibc-go/v10/modules/core/ante"
 )
 
 // newCosmosAnteHandler creates the default ante handler for Cosmos transactions

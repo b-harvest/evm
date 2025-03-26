@@ -308,7 +308,6 @@ func NewExampleApp(
 		interfaceRegistry: interfaceRegistry,
 		keys:              keys,
 		tkeys:             tkeys,
-		memKeys:           memKeys,
 	}
 
 	app.ParamsKeeper = initParamsKeeper(appCodec, legacyAmino, keys[paramstypes.StoreKey], tkeys[paramstypes.TStoreKey])
@@ -729,7 +728,6 @@ func NewExampleApp(
 	// initialize stores
 	app.MountKVStores(keys)
 	app.MountTransientStores(tkeys)
-	app.MountMemoryStores(memKeys)
 
 	maxGasWanted := cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted))
 
