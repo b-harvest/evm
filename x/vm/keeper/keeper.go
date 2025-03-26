@@ -167,62 +167,21 @@ func (k Keeper) EmitReceiptsRootEvent(ctx sdk.Context, receiptsRoot common.Hash)
 	)
 }
 
-// HasReceipts verifies the existence of root hash of all the transaction receipts belonging
-// to a block.
-func (k *Keeper) HasReceiptsRoot(ctx sdk.Context, blockNumber int64) bool {
-	if blockNumber < 1 {
-		return false
-	}
-
-	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixReceiptsRoot)
-	heightBz := sdk.Uint64ToBigEndian(uint64(blockNumber))
-	return store.Has(heightBz)
-}
-
 // GetReceiptsRoot loads the receipts root from the database for the given block number and hash.
-func (k *Keeper) GetReceiptsRoot(ctx sdk.Context, blockNumber int64) (common.Hash, error) {
-	if blockNumber < 1 {
-		return ethtypes.EmptyRootHash, fmt.Errorf("block number must be greater than 0")
-	}
-
-	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixReceiptsRoot)
-	heightBz := sdk.Uint64ToBigEndian(uint64(blockNumber))
-	bz := store.Get(heightBz)
+func (k *Keeper) GetReceiptsRoot(ctx sdk.Context) (common.Hash, error) {
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get(types.KeyPrefixReceiptsRoot)
 	if len(bz) == 0 {
-		return ethtypes.EmptyRootHash, nil
+		return common.Hash{}, fmt.Errorf("receipts root not found")
 	}
 
 	return common.BytesToHash(bz), nil
 }
 
-// GetAllReceiptsRoots returns all the receipts roots stored in the KVStore.
-func (k *Keeper) GetAllReceiptsRoots(ctx sdk.Context) ([]types.ReceiptsRoot, error) {
-	store := ctx.KVStore(k.storeKey)
-	iterator := storetypes.KVStorePrefixIterator(store, types.KeyPrefixReceiptsRoot)
-	defer iterator.Close()
-
-	var receiptRoots []types.ReceiptsRoot
-	for ; iterator.Valid(); iterator.Next() {
-		blockHeight, err := types.ParseReceiptsRootKey(iterator.Key())
-		if err != nil {
-			return nil, err
-		}
-
-		receiptRoot := types.ReceiptsRoot{
-			BlockHeight: blockHeight,
-			ReceiptRoot: common.BytesToHash(iterator.Value()).Hex(),
-		}
-		receiptRoots = append(receiptRoots, receiptRoot)
-	}
-
-	return receiptRoots, nil
-}
-
 // SetReceiptsRoot sets the receipts root hash for the given block number and hash.
-func (k *Keeper) SetReceiptsRoot(ctx sdk.Context, blockHeight uint64, receiptsRoot common.Hash) {
-	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixReceiptsRoot)
-	heightBz := sdk.Uint64ToBigEndian(blockHeight)
-	store.Set(heightBz, receiptsRoot.Bytes())
+func (k *Keeper) SetReceiptsRoot(ctx sdk.Context, receiptsRoot common.Hash) {
+	store := ctx.KVStore(k.storeKey)
+	store.Set(types.KeyPrefixReceiptsRoot, receiptsRoot.Bytes())
 
 	k.Logger(ctx).Debug(
 		"receipts root updated",

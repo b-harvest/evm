@@ -227,7 +227,6 @@ func (suite *KeeperTestSuite) TestGetReceiptTransient() {
 }
 
 func (suite *KeeperTestSuite) TestGetReceiptsTransientWithERC20Mint() {
-
 	// 1. deploy erc20 contract
 	user1Key := suite.keyring.GetKey(0)
 	constructorArgs := []interface{}{"coin", "token", uint8(18)}
@@ -271,7 +270,7 @@ func (suite *KeeperTestSuite) TestGetReceiptsTransientWithERC20Mint() {
 	suite.Require().NoError(err)
 
 	// 3. Get receiptsRoot
-	receiptsRoot, err := s.network.App.EVMKeeper.GetReceiptsRoot(suite.network.GetContext(), suite.network.GetContext().BlockHeight())
+	receiptsRoot, err := suite.network.App.EVMKeeper.GetReceiptsRoot(suite.network.GetContext())
 	suite.Require().NoError(err)
 
 	// 4. Check receiptsRoot == ethtype.DepriveSha(Receipts)
@@ -308,7 +307,7 @@ func (suite *KeeperTestSuite) TestGetReceiptsTransientWithNativeSend() {
 	suite.Require().NoError(err)
 
 	// 2. Get receiptsRoot
-	receiptsRoot, err := s.network.App.EVMKeeper.GetReceiptsRoot(suite.network.GetContext(), suite.network.GetContext().BlockHeight())
+	receiptsRoot, err := suite.network.App.EVMKeeper.GetReceiptsRoot(suite.network.GetContext())
 	suite.Require().NoError(err)
 
 	// 3. Check receiptsRoot == ethtype.DepriveSha(Receipts)
