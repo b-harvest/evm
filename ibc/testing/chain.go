@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	"github.com/cosmos/evm/example_chain"
 )
 
 // NewTestChainWithValSet initializes a new TestChain instance with the given validator set
@@ -49,7 +50,7 @@ func NewTestChainWithValSet(tb testing.TB, coord *ibctesting.Coordinator, chainI
 			Address: acc.GetAddress().String(),
 			Coins: sdk.NewCoins(
 				sdk.NewCoin(sdk.DefaultBondDenom, amount),
-				sdk.NewCoin(ibctesting.SecondaryDenom, amount),
+				sdk.NewCoin(example_chain.ExampleChainDenom, amount),
 			),
 		}
 
@@ -65,7 +66,6 @@ func NewTestChainWithValSet(tb testing.TB, coord *ibctesting.Coordinator, chainI
 	}
 
 	app := ibctesting.SetupWithGenesisValSet(tb, valSet, genAccs, chainID, sdk.DefaultPowerReduction, genBals...)
-
 	// create current header and call begin block
 	header := cmtproto.Header{
 		ChainID: chainID,

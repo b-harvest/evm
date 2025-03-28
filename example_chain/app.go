@@ -96,6 +96,7 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 	"github.com/spf13/cast"
 
 	evmante "github.com/cosmos/evm/ante"
@@ -163,6 +164,7 @@ var (
 var (
 	_ runtime.AppI            = (*ExampleChain)(nil)
 	_ servertypes.Application = (*ExampleChain)(nil)
+	_ ibctesting.TestingApp   = (*ExampleChain)(nil)
 )
 
 // ExampleChain extends an ABCI application, but with most of its parameters exported.
@@ -504,7 +506,7 @@ func NewExampleApp(
 		appCodec,
 		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
 		app.GetSubspace(ibctransfertypes.ModuleName),
-		nil, // we are passing no ics4 wrapper
+		app.IBCKeeper.ChannelKeeper, // ibc v10
 		app.IBCKeeper.ChannelKeeper,
 		app.MsgServiceRouter(),
 		app.AccountKeeper,
@@ -901,6 +903,9 @@ func (a *ExampleChain) DefaultGenesis() map[string]json.RawMessage {
 	// which is the base denomination of the chain (i.e. the WEVMOS contract)
 	erc20GenState := NewErc20GenesisState()
 	genesis[erc20types.ModuleName] = a.appCodec.MustMarshalJSON(erc20GenState)
+
+	feeMarketState := NewFeeMarketGenesisState()
+	genesis[feemarkettypes.ModuleName] = a.appCodec.MustMarshalJSON(feeMarketState)
 
 	return genesis
 }
