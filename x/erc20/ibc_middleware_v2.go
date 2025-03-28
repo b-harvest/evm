@@ -72,7 +72,7 @@ func (im IBCMiddlewareV2) OnSendPacket(
 	payload channeltypesv2.Payload,
 	signer sdk.AccAddress,
 ) error {
-	err := im.OnSendPacket(ctx, sourceClient, destinationClient, sequence, payload, signer)
+	err := im.app.OnSendPacket(ctx, sourceClient, destinationClient, sequence, payload, signer)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func (im IBCMiddlewareV2) OnRecvPacket(
 	payload channeltypesv2.Payload,
 	relayer sdk.AccAddress,
 ) channeltypesv2.RecvPacketResult {
-	recvResult := im.OnRecvPacket(ctx, sourceClient, destinationClient, sequence, payload, relayer)
+	recvResult := im.app.OnRecvPacket(ctx, sourceClient, destinationClient, sequence, payload, relayer)
 	// if ack is nil (asynchronous acknowledgements), then the callback will be handled in WriteAcknowledgement
 	// if ack is not successful, all state changes are reverted. If a packet cannot be received, then there is
 	// no need to execute a callback on the receiving chain.
@@ -132,7 +132,7 @@ func (im IBCMiddlewareV2) OnAcknowledgementPacket(
 	relayer sdk.AccAddress,
 ) error {
 	// we first call the underlying app to handle the acknowledgement
-	err := im.OnAcknowledgementPacket(ctx, sourceClient, destinationClient, sequence, acknowledgement, payload, relayer)
+	err := im.app.OnAcknowledgementPacket(ctx, sourceClient, destinationClient, sequence, acknowledgement, payload, relayer)
 	if err != nil {
 		return err
 	}
