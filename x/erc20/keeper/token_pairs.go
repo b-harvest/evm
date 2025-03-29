@@ -5,9 +5,10 @@ import (
 	"cosmossdk.io/store/prefix"
 	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20/types"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // CreateNewTokenPair creates a new token pair and stores it in the state.
@@ -161,7 +162,7 @@ func (k Keeper) IsDenomRegistered(ctx sdk.Context, denom string) bool {
 // GetCoinAddress returns the corresponding ERC-20 contract address for the
 // given denom.
 // If the denom is not registered and its an IBC voucher, it returns the address
-// from the hash of the ICS20's DenomTrace Path.
+// from the hash of the ICS20's Denom Path.
 func (k Keeper) GetCoinAddress(ctx sdk.Context, denom string) (common.Address, error) {
 	id := k.GetDenomMap(ctx, denom)
 	if len(id) == 0 {

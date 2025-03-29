@@ -14,20 +14,20 @@ import (
 	auth "github.com/cosmos/evm/precompiles/authorization"
 	"github.com/cosmos/evm/precompiles/erc20"
 	"github.com/cosmos/evm/x/vm/core/vm"
-	"github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	"github.com/ethereum/go-ethereum/common"
 )
 
 // Define useful variables for tests here.
 var (
 	// tooShortTrace is a denomination trace with a name that will raise the "denom too short" error
-	tooShortTrace = types.DenomTrace{Path: "channel-0", BaseDenom: "ab"}
+	tooShortTrace = types.Denom{Path: "channel-0", BaseDenom: "ab"}
 	// validTraceDenom is a denomination trace with a valid IBC voucher name
-	validTraceDenom = types.DenomTrace{Path: "channel-0", BaseDenom: "uosmo"}
+	validTraceDenom = types.Denom{Path: "channel-0", BaseDenom: "uosmo"}
 	// validAttoTraceDenom is a denomination trace with a valid IBC voucher name and 18 decimals
-	validAttoTraceDenom = types.DenomTrace{Path: "channel-0", BaseDenom: "aatom"}
+	validAttoTraceDenom = types.Denom{Path: "channel-0", BaseDenom: "aatom"}
 	// validTraceDenomNoMicroAtto is a denomination trace with a valid IBC voucher name but no micro or atto prefix
-	validTraceDenomNoMicroAtto = types.DenomTrace{Path: "channel-0", BaseDenom: "matom"}
+	validTraceDenomNoMicroAtto = types.Denom{Path: "channel-0", BaseDenom: "matom"}
 
 	// --------------------
 	// Variables for coin with valid metadata
@@ -128,14 +128,14 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 		},
 		{
 			name:        "fail - denom not found",
-			denom:       types.DenomTrace{Path: "channel-0", BaseDenom: "notfound"}.IBCDenom(),
+			denom:       types.Denom{Path: "channel-0", BaseDenom: "notfound"}.IBCDenom(),
 			errContains: vm.ErrExecutionReverted.Error(),
 		},
 		{
 			name:  "fail - invalid denom (too short < 3 chars)",
 			denom: tooShortTrace.IBCDenom(),
 			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
-				app.TransferKeeper.SetDenomTrace(ctx, tooShortTrace)
+				app.TransferKeeper.SetDenom(ctx, tooShortTrace)
 			},
 			errContains: vm.ErrExecutionReverted.Error(),
 		},
@@ -148,7 +148,7 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 			name:  "pass - valid ibc denom without metadata and neither atto nor micro prefix",
 			denom: validTraceDenomNoMicroAtto.IBCDenom(),
 			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
-				app.TransferKeeper.SetDenomTrace(ctx, validTraceDenomNoMicroAtto)
+				app.TransferKeeper.SetDenom(ctx, validTraceDenomNoMicroAtto)
 			},
 			expPass:   true,
 			expName:   "Atom",
@@ -173,7 +173,7 @@ func (s *PrecompileTestSuite) TestNameSymbol() {
 			name:  "pass - valid ibc denom without metadata",
 			denom: validTraceDenom.IBCDenom(),
 			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
-				app.TransferKeeper.SetDenomTrace(ctx, validTraceDenom)
+				app.TransferKeeper.SetDenom(ctx, validTraceDenom)
 			},
 			expPass:   true,
 			expName:   "Osmo",
@@ -243,7 +243,7 @@ func (s *PrecompileTestSuite) TestDecimals() {
 		},
 		{
 			name:        "fail - denom not found",
-			denom:       types.DenomTrace{Path: "channel-0", BaseDenom: "notfound"}.IBCDenom(),
+			denom:       types.Denom{Path: "channel-0", BaseDenom: "notfound"}.IBCDenom(),
 			errContains: vm.ErrExecutionReverted.Error(),
 		},
 		{
@@ -255,7 +255,7 @@ func (s *PrecompileTestSuite) TestDecimals() {
 			name:  "fail - valid ibc denom without metadata and neither atto nor micro prefix",
 			denom: validTraceDenomNoMicroAtto.IBCDenom(),
 			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
-				app.TransferKeeper.SetDenomTrace(ctx, validTraceDenomNoMicroAtto)
+				app.TransferKeeper.SetDenom(ctx, validTraceDenomNoMicroAtto)
 			},
 			errContains: vm.ErrExecutionReverted.Error(),
 		},
@@ -263,7 +263,7 @@ func (s *PrecompileTestSuite) TestDecimals() {
 			name:  "pass - invalid denom (too short < 3 chars)",
 			denom: tooShortTrace.IBCDenom(),
 			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
-				app.TransferKeeper.SetDenomTrace(ctx, tooShortTrace)
+				app.TransferKeeper.SetDenom(ctx, tooShortTrace)
 			},
 			expPass:     true, // TODO: do we want to check in decimals query for the above error?
 			expDecimals: 18,   // expect 18 decimals here because of "a" prefix
@@ -286,7 +286,7 @@ func (s *PrecompileTestSuite) TestDecimals() {
 			name:  "pass - valid ibc denom without metadata",
 			denom: validTraceDenom.IBCDenom(),
 			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
-				app.TransferKeeper.SetDenomTrace(ctx, validTraceDenom)
+				app.TransferKeeper.SetDenom(ctx, validTraceDenom)
 			},
 			expPass:     true,
 			expDecimals: 6,
@@ -295,7 +295,7 @@ func (s *PrecompileTestSuite) TestDecimals() {
 			name:  "pass - valid ibc denom without metadata and 18 decimals",
 			denom: validAttoTraceDenom.IBCDenom(),
 			malleate: func(ctx sdk.Context, app *app.ExampleChain) {
-				app.TransferKeeper.SetDenomTrace(ctx, validAttoTraceDenom)
+				app.TransferKeeper.SetDenom(ctx, validAttoTraceDenom)
 			},
 			expPass:     true,
 			expDecimals: 18,

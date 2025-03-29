@@ -26,13 +26,13 @@ import (
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	"github.com/cosmos/gogoproto/proto"
+
 	exampleapp "github.com/cosmos/evm/example_chain"
 	cosmosevmtypes "github.com/cosmos/evm/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	"github.com/cosmos/gogoproto/proto"
-	capabilitytypes "github.com/cosmos/ibc-go/modules/capability/types"
 )
 
 // genSetupFn is the type for the module genesis setup functions
@@ -68,7 +68,6 @@ var genesisSetupFunctions = map[string]genSetupFn{
 		// This is handled accordingly on chain and context initialization
 		return genesisState, nil
 	},
-	capabilitytypes.ModuleName: genStateSetter[*capabilitytypes.GenesisState](capabilitytypes.ModuleName),
 }
 
 // genStateSetter is a generic function to set module-specific genesis state

@@ -98,13 +98,13 @@ func (p Precompile) Decimals(
 ) ([]byte, error) {
 	metadata, found := p.BankKeeper.GetDenomMetaData(ctx, p.tokenPair.Denom)
 	if !found {
-		denomTrace, err := ibc.GetDenomTrace(p.transferKeeper, ctx, p.tokenPair.Denom)
+		Denom, err := ibc.GetDenom(p.transferKeeper, ctx, p.tokenPair.Denom)
 		if err != nil {
 			return nil, ConvertErrToERC20Error(err)
 		}
 
 		// we assume the decimal from the first character of the denomination
-		decimals, err := ibc.DeriveDecimalsFromDenom(denomTrace.BaseDenom)
+		decimals, err := ibc.DeriveDecimalsFromDenom(Denom.Base)
 		if err != nil {
 			return nil, ConvertErrToERC20Error(err)
 		}
@@ -230,17 +230,17 @@ func GetAuthzExpirationAndAllowance(
 // getBaseDenomFromIBCVoucher returns the base denomination from the given IBC voucher denomination.
 func (p Precompile) getBaseDenomFromIBCVoucher(ctx sdk.Context, denom string) (string, error) {
 	// Infer the denomination name from the coin denomination base denom
-	denomTrace, err := ibc.GetDenomTrace(p.transferKeeper, ctx, denom)
+	Denom, err := ibc.GetDenom(p.transferKeeper, ctx, denom)
 	if err != nil {
 		// FIXME: return 'not supported' (same error as when you call the method on an ERC20.sol)
 		return "", err
 	}
 
 	// safety check
-	if len(denomTrace.BaseDenom) < 3 {
+	if len(Denom.Base) < 3 {
 		// FIXME: return not supported (same error as when you call the method on an ERC20.sol)
-		return "", fmt.Errorf("invalid base denomination; should be at least length 3; got: %q", denomTrace.BaseDenom)
+		return "", fmt.Errorf("invalid base denomination; should be at least length 3; got: %q", Denom.Base)
 	}
 
-	return denomTrace.BaseDenom, nil
+	return Denom.Base, nil
 }

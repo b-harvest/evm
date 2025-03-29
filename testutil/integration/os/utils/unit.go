@@ -8,13 +8,14 @@ import (
 	"fmt"
 
 	"cosmossdk.io/math"
+	ibctypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
+
 	"github.com/cosmos/evm/testutil/integration/os/network"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 )
 
 const (
@@ -72,7 +73,7 @@ func RegisterEvmosERC20Coins(
 	return tokenPair, nil
 }
 
-// RegisterIBCERC20Coins uses the UnitNetwork to register the denomTrace as an
+// RegisterIBCERC20Coins uses the UnitNetwork to register the Denom as an
 // ERC20 token. The function performs all the required steps for the registration
 // like registering the denom trace in the transfer keeper and minting the token
 // with the bank. Returns the TokenPair or an error.
@@ -81,10 +82,13 @@ func RegisterEvmosERC20Coins(
 func RegisterIBCERC20Coins(
 	network *network.UnitTestNetwork,
 	tokenReceiver sdk.AccAddress,
-	denomTrace transfertypes.DenomTrace,
+	denom ibctypes.Denom,
 ) (erc20types.TokenPair, error) {
-	ibcDenom := denomTrace.IBCDenom()
-	network.App.TransferKeeper.SetDenomTrace(network.GetContext(), denomTrace)
+	ibcDenom := denom.IBCDenom()
+	network.App.TransferKeeper.SetDenom(
+		network.GetContext(),
+		denom,
+	)
 	ibcMetadata := banktypes.Metadata{
 		Name:        "Generic IBC name",
 		Symbol:      "IBC",
@@ -131,7 +135,7 @@ func RegisterIBCERC20Coins(
 
 	ibcDenomID := network.App.Erc20Keeper.GetDenomMap(
 		network.GetContext(),
-		denomTrace.IBCDenom(),
+		denom.IBCDenom(),
 	)
 	tokenPair, ok := network.App.Erc20Keeper.GetTokenPair(network.GetContext(), ibcDenomID)
 	if !ok {
