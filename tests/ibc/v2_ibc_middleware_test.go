@@ -4,10 +4,15 @@ import (
 	"errors"
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 	ibcmockv2 "github.com/cosmos/ibc-go/v10/testing/mock/v2"
 	testifysuite "github.com/stretchr/testify/suite"
 
+	"github.com/cosmos/evm/evmd"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/v2"
@@ -23,21 +28,28 @@ type MiddlewareV2TestSuite struct {
 	evmChainA *ibctesting.TestChain
 	chainB    *ibctesting.TestChain
 
-	// chainB to evmChainA for testing OnRecvPacket, OnAckPacket, and OnTimeoutPacket
+	// evmChainA to chainB for testing OnSendPacket, OnAckPacket, and OnTimeoutPacket
+	pathAToB *ibctesting.Path
+	// chainB to evmChainA for testing OnRecvPacket
 	pathBToA *ibctesting.Path
 }
 
 func (suite *MiddlewareV2TestSuite) SetupTest() {
-	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 2)
+	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1)
 	suite.evmChainA = suite.coordinator.GetChain(ibctesting.GetChainID(1))
 	suite.chainB = suite.coordinator.GetChain(ibctesting.GetChainID(2))
 
+	// setup between evmChainA and chainB
+	// pathAToB.EndpointA = endpoint on evmChainA
+	// pathAToB.EndpointB = endpoint on chainB
+	suite.pathAToB = ibctesting.NewPath(suite.evmChainA, suite.chainB)
 	// setup between chainB and evmChainA
 	// pathBToA.EndpointA = endpoint on chainB
 	// pathBToA.EndpointB = endpoint on evmChainA
 	suite.pathBToA = ibctesting.NewPath(suite.chainB, suite.evmChainA)
 
 	// setup IBC v2 paths between the chains
+	suite.pathAToB.SetupV2()
 	suite.pathBToA.SetupV2()
 }
 
@@ -88,6 +100,374 @@ func (s *MiddlewareV2TestSuite) TestNewIBCMiddleware() {
 					tc.instantiateFn,
 					"expected panic with error: ", tc.expError.Error(),
 				)
+			}
+		})
+	}
+}
+
+func (s *MiddlewareV2TestSuite) TestOnSendPacket() {
+	var (
+		ctx        sdk.Context
+		packetData transfertypes.FungibleTokenPacketData
+		payload    channeltypesv2.Payload
+	)
+
+	testCases := []struct {
+		name     string
+		malleate func()
+		expError string
+	}{
+		{
+			name:     "pass",
+			malleate: nil,
+			expError: "",
+		},
+		{
+			name: "fail: malformed packet data",
+			malleate: func() {
+				payload.Value = []byte("malformed")
+			},
+			expError: "cannot unmarshal ICS20-V1 transfer packet data",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		s.Run(tc.name, func() {
+			s.SetupTest()
+			ctx = s.evmChainA.GetContext()
+			evmApp := s.evmChainA.App.(*evmd.EVMD)
+			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
+			s.Require().NoError(err)
+			packetData = transfertypes.NewFungibleTokenPacketData(
+				bondDenom,
+				ibctesting.DefaultCoinAmount.String(),
+				s.evmChainA.SenderAccount.GetAddress().String(),
+				s.chainB.SenderAccount.GetAddress().String(),
+				"",
+			)
+
+			payload = channeltypesv2.NewPayload(
+				transfertypes.PortID, transfertypes.PortID,
+				transfertypes.V1, transfertypes.EncodingJSON,
+				packetData.GetBytes(),
+			)
+
+			if tc.malleate != nil {
+				tc.malleate()
+			}
+
+			onSendPacket := func() error {
+				return evmApp.GetIBCKeeper().ChannelKeeperV2.Router.Route(ibctesting.TransferPort).OnSendPacket(
+					ctx,
+					s.pathAToB.EndpointA.ClientID,
+					s.pathAToB.EndpointB.ClientID,
+					1,
+					payload,
+					s.evmChainA.SenderAccount.GetAddress(),
+				)
+			}
+
+			err = onSendPacket()
+			if tc.expError != "" {
+				s.Require().Error(err)
+				s.Require().ErrorContains(err, tc.expError)
+			} else {
+				s.Require().NoError(err)
+				// check that the escrowed coins are in the escrow account
+				escrowAddress := transfertypes.GetEscrowAddress(
+					transfertypes.PortID,
+					s.pathAToB.EndpointA.ClientID,
+				)
+				escrowedCoins := evmApp.BankKeeper.GetAllBalances(ctx, escrowAddress)
+				s.Require().Equal(1, len(escrowedCoins))
+				s.Require().Equal(ibctesting.DefaultCoinAmount.String(), escrowedCoins[0].Amount.String())
+				s.Require().Equal(bondDenom, escrowedCoins[0].Denom)
+			}
+		})
+	}
+}
+
+func (s *MiddlewareV2TestSuite) TestOnRecvPacket() {
+	var (
+		ctx        sdk.Context
+		packetData transfertypes.FungibleTokenPacketData
+		payload    channeltypesv2.Payload
+	)
+
+	testCases := []struct {
+		name      string
+		malleate  func()
+		expResult channeltypesv2.PacketStatus
+	}{
+		{
+			name:      "pass",
+			malleate:  nil,
+			expResult: channeltypesv2.PacketStatus_Success,
+		},
+		{
+			name: "fail: malformed packet data",
+			malleate: func() {
+				payload.Value = []byte("malformed")
+			},
+			expResult: channeltypesv2.PacketStatus_Failure,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		s.Run(tc.name, func() {
+			s.SetupTest()
+			ctx = s.chainB.GetContext()
+			bondDenom, err := s.chainB.GetSimApp().StakingKeeper.BondDenom(ctx)
+			s.Require().NoError(err)
+			packetData = transfertypes.NewFungibleTokenPacketData(
+				bondDenom,
+				ibctesting.DefaultCoinAmount.String(),
+				s.chainB.SenderAccount.GetAddress().String(),
+				s.evmChainA.SenderAccount.GetAddress().String(),
+				"",
+			)
+
+			payload = channeltypesv2.NewPayload(
+				transfertypes.PortID, transfertypes.PortID,
+				transfertypes.V1, transfertypes.EncodingJSON,
+				packetData.GetBytes(),
+			)
+
+			if tc.malleate != nil {
+				tc.malleate()
+			}
+
+			// erc20 module is routed as top level middleware
+			erc20mod := s.evmChainA.App.GetIBCKeeper().ChannelKeeperV2.Router.Route(ibctesting.TransferPort)
+			onRecvPacket := func() channeltypesv2.RecvPacketResult {
+				ctx = s.evmChainA.GetContext()
+				return erc20mod.OnRecvPacket(
+					ctx,
+					s.pathBToA.EndpointB.ClientID,
+					s.pathBToA.EndpointA.ClientID,
+					1,
+					payload,
+					s.evmChainA.SenderAccount.GetAddress(),
+				)
+			}
+
+			recvResult := onRecvPacket()
+			s.Require().Equal(tc.expResult, recvResult.Status)
+		})
+	}
+}
+
+func (s *MiddlewareV2TestSuite) TestOnAcknowledgementPacket() {
+	var (
+		ctx        sdk.Context
+		packetData transfertypes.FungibleTokenPacketData
+		ack        []byte
+		payload    channeltypesv2.Payload
+	)
+
+	testCases := []struct {
+		name           string
+		malleate       func()
+		onSendRequired bool
+		expError       string
+	}{
+		{
+			name:           "pass",
+			malleate:       nil,
+			onSendRequired: false,
+			expError:       "",
+		},
+		{
+			name: "pass: refund escrowed token because ack err(UNIVERSAL_ERROR_ACKNOWLEDGEMENT)",
+			malleate: func() {
+				ack = channeltypesv2.ErrorAcknowledgement[:]
+			},
+			onSendRequired: true, // this test case handles the refund of the escrowed token, so we need to call OnSendPacket.
+			expError:       "",
+		},
+		{
+			name: "fail: malformed packet data",
+			malleate: func() {
+				payload.Value = []byte("malformed")
+			},
+			onSendRequired: false,
+			expError:       "cannot unmarshal ICS20-V1 transfer packet data",
+		},
+		{
+			name: "fail: empty ack",
+			malleate: func() {
+				ack = []byte{}
+			},
+			onSendRequired: false,
+			expError:       "cannot unmarshal ICS-20 transfer packet acknowledgement",
+		},
+		{
+			name: "fail: ack error",
+			malleate: func() {
+				ackErr := channeltypes.NewErrorAcknowledgement(errors.New("error"))
+				ack = ackErr.Acknowledgement()
+			},
+			onSendRequired: false,
+			expError:       "cannot pass in a custom error acknowledgement with IBC v2",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		s.Run(tc.name, func() {
+			s.SetupTest()
+			ctx = s.evmChainA.GetContext()
+			evmApp := s.evmChainA.App.(*evmd.EVMD)
+			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
+			s.Require().NoError(err)
+			packetData = transfertypes.NewFungibleTokenPacketData(
+				bondDenom,
+				ibctesting.DefaultCoinAmount.String(),
+				s.evmChainA.SenderAccount.GetAddress().String(),
+				s.chainB.SenderAccount.GetAddress().String(),
+				"",
+			)
+
+			ack = channeltypes.NewResultAcknowledgement([]byte{1}).Acknowledgement()
+
+			payload = channeltypesv2.NewPayload(
+				transfertypes.PortID, transfertypes.PortID,
+				transfertypes.V1, transfertypes.EncodingJSON,
+				packetData.GetBytes(),
+			)
+
+			if tc.malleate != nil {
+				tc.malleate()
+			}
+
+			// erc20 module is routed as top level middleware
+			erc20mod := s.evmChainA.App.GetIBCKeeper().ChannelKeeperV2.Router.Route(ibctesting.TransferPort)
+			if tc.onSendRequired {
+				s.NoError(erc20mod.OnSendPacket(
+					ctx,
+					s.pathAToB.EndpointA.ClientID,
+					s.pathAToB.EndpointB.ClientID,
+					1,
+					payload,
+					s.evmChainA.SenderAccount.GetAddress(),
+				))
+			}
+			onAckPacket := func() error {
+				return erc20mod.OnAcknowledgementPacket(
+					ctx,
+					s.pathAToB.EndpointA.ClientID,
+					s.pathAToB.EndpointB.ClientID,
+					1,
+					ack,
+					payload,
+					s.evmChainA.SenderAccount.GetAddress(),
+				)
+			}
+
+			err = onAckPacket()
+			if tc.expError != "" {
+				s.Require().Error(err)
+				s.Require().ErrorContains(err, tc.expError)
+			} else {
+				s.Require().NoError(err)
+			}
+		})
+	}
+}
+
+func (s *MiddlewareV2TestSuite) TestOnTimeoutPacket() {
+	var (
+		ctx        sdk.Context
+		packetData transfertypes.FungibleTokenPacketData
+		payload    channeltypesv2.Payload
+	)
+
+	testCases := []struct {
+		name           string
+		malleate       func()
+		onSendRequired bool
+		expError       string
+	}{
+		{
+			name:           "pass",
+			malleate:       nil,
+			onSendRequired: true,
+			expError:       "",
+		},
+		{
+			name: "fail: malformed packet data",
+			malleate: func() {
+				payload.Value = []byte("malformed")
+			},
+			onSendRequired: false, // malformed packet data cannot be sent
+			expError:       "cannot unmarshal ICS20-V1 transfer packet data",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		s.Run(tc.name, func() {
+			s.SetupTest()
+			ctx = s.evmChainA.GetContext()
+			evmApp := s.evmChainA.App.(*evmd.EVMD)
+			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
+			s.Require().NoError(err)
+			packetData = transfertypes.NewFungibleTokenPacketData(
+				bondDenom,
+				ibctesting.DefaultCoinAmount.String(),
+				s.evmChainA.SenderAccount.GetAddress().String(),
+				s.chainB.SenderAccount.GetAddress().String(),
+				"",
+			)
+
+			payload = channeltypesv2.NewPayload(
+				transfertypes.PortID, transfertypes.PortID,
+				transfertypes.V1, transfertypes.EncodingJSON,
+				packetData.GetBytes(),
+			)
+
+			if tc.malleate != nil {
+				tc.malleate()
+			}
+
+			erc20mod := s.evmChainA.App.GetIBCKeeper().ChannelKeeperV2.Router.Route(ibctesting.TransferPort)
+			if tc.onSendRequired {
+				s.NoError(erc20mod.OnSendPacket(
+					ctx,
+					s.pathAToB.EndpointA.ClientID,
+					s.pathAToB.EndpointB.ClientID,
+					1,
+					payload,
+					s.evmChainA.SenderAccount.GetAddress(),
+				))
+			}
+
+			onTimeoutPacket := func() error {
+				return erc20mod.OnTimeoutPacket(
+					ctx,
+					s.pathAToB.EndpointA.ClientID,
+					s.pathAToB.EndpointB.ClientID,
+					1,
+					payload,
+					s.evmChainA.SenderAccount.GetAddress(),
+				)
+			}
+
+			err = onTimeoutPacket()
+			if tc.expError != "" {
+				s.Require().Error(err)
+				s.Require().ErrorContains(err, tc.expError)
+			} else {
+				s.Require().NoError(err)
+				// check that the escrowed coins are un-escrowed
+				escrowAddress := transfertypes.GetEscrowAddress(
+					transfertypes.PortID,
+					s.pathAToB.EndpointA.ClientID,
+				)
+				escrowedCoins := evmApp.BankKeeper.GetAllBalances(ctx, escrowAddress)
+				s.Require().Equal(0, len(escrowedCoins))
 			}
 		})
 	}
