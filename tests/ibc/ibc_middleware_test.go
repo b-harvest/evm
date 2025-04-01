@@ -331,3 +331,110 @@ func (s *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
 		})
 	}
 }
+
+func (s *MiddlewareTestSuite) TestOnTimeoutPacket() {
+	var (
+		ctx    sdk.Context
+		packet channeltypes.Packet
+	)
+
+	testCases := []struct {
+		name           string
+		malleate       func()
+		onSendRequired bool
+		expError       string
+	}{
+		{
+			name:           "pass",
+			malleate:       nil,
+			onSendRequired: true,
+			expError:       "",
+		},
+		{
+			name: "fail: malformed packet data",
+			malleate: func() {
+				packet.Data = []byte("malformed data")
+			},
+			onSendRequired: false,
+			expError:       "cannot unmarshal ICS-20 transfer packet data",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		s.Run(tc.name, func() {
+			s.SetupTest()
+
+			ctx = s.evmChainA.GetContext()
+			evmApp := s.evmChainA.App.(*evmd.EVMD)
+			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
+			s.Require().NoError(err)
+			sendAmt := ibctesting.DefaultCoinAmount
+			sender := s.evmChainA.SenderAccount.GetAddress()
+			receiver := s.chainB.SenderAccount.GetAddress()
+			packetData := transfertypes.NewFungibleTokenPacketData(
+				bondDenom,
+				sendAmt.String(),
+				sender.String(),
+				receiver.String(),
+				"",
+			)
+			path := s.pathAToB
+			packet = channeltypes.Packet{
+				Sequence:           1,
+				SourcePort:         path.EndpointA.ChannelConfig.PortID,
+				SourceChannel:      path.EndpointA.ChannelID,
+				DestinationPort:    path.EndpointB.ChannelConfig.PortID,
+				DestinationChannel: path.EndpointB.ChannelID,
+				Data:               packetData.GetBytes(),
+				TimeoutHeight:      s.chainB.GetTimeoutHeight(),
+				TimeoutTimestamp:   0,
+			}
+
+			if tc.malleate != nil {
+				tc.malleate()
+			}
+
+			timeoutStack, ok := evmApp.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
+			s.Require().True(ok)
+
+			sourceChan := s.pathAToB.EndpointA.GetChannel()
+			onTimeoutPacket := func() error {
+				return timeoutStack.OnTimeoutPacket(
+					ctx,
+					sourceChan.Version,
+					packet,
+					sender,
+				)
+			}
+
+			if tc.onSendRequired {
+				timeoutHeight := clienttypes.NewHeight(1, 110)
+				msg := transfertypes.NewMsgTransfer(
+					path.EndpointA.ChannelConfig.PortID,
+					path.EndpointA.ChannelID,
+					sdk.NewCoin(bondDenom, sendAmt),
+					sender.String(),
+					receiver.String(),
+					timeoutHeight, 0, "",
+				)
+				res, err := s.evmChainA.SendMsgs(msg)
+				s.Require().NoError(err) // message committed
+				packet, err := ibctesting.ParsePacketFromEvents(res.Events)
+				s.Require().NoError(err)
+
+				// relay send
+				err = path.RelayPacket(packet)
+				s.Require().NoError(err) // relay committed
+			}
+
+			err = onTimeoutPacket()
+			if tc.expError == "" {
+				s.Require().NoError(err)
+			} else {
+				s.Require().Error(err)
+				s.Require().Contains(err.Error(), tc.expError)
+			}
+		})
+	}
+}
