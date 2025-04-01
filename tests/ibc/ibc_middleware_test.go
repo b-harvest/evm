@@ -6,6 +6,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
@@ -199,6 +200,133 @@ func (s *MiddlewareTestSuite) TestOnRecvPacket() {
 				ackErr, ok := acknowledgement.Response.(*channeltypes.Acknowledgement_Error)
 				s.Require().True(ok)
 				s.Require().Contains(ackErr.Error, tc.expError)
+			}
+		})
+	}
+}
+
+func (s *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
+	var (
+		ctx    sdk.Context
+		packet channeltypes.Packet
+		ack    []byte
+	)
+
+	testCases := []struct {
+		name           string
+		malleate       func()
+		onSendRequired bool
+		expError       string
+	}{
+		{
+			name:           "pass",
+			malleate:       nil,
+			onSendRequired: false,
+			expError:       "",
+		},
+		{
+			name: "pass: refund escrowed token",
+			malleate: func() {
+				ackErr := channeltypes.NewErrorAcknowledgement(errors.New("error"))
+				ack = ackErr.Acknowledgement()
+			},
+			onSendRequired: true,
+			expError:       "",
+		},
+		{
+			name: "fail: malformed packet data",
+			malleate: func() {
+				packet.Data = []byte("malformed data")
+			},
+			onSendRequired: false,
+			expError:       "cannot unmarshal ICS-20 transfer packet data",
+		},
+		{
+			name: "fail: empty ack",
+			malleate: func() {
+				ack = []byte{}
+			},
+			onSendRequired: false,
+			expError:       "cannot unmarshal ICS-20 transfer packet acknowledgement",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		s.Run(tc.name, func() {
+			s.SetupTest()
+
+			ctx = s.evmChainA.GetContext()
+			evmApp := s.evmChainA.App.(*evmd.EVMD)
+			bondDenom, err := evmApp.StakingKeeper.BondDenom(ctx)
+			s.Require().NoError(err)
+			sendAmt := ibctesting.DefaultCoinAmount
+			sender := s.evmChainA.SenderAccount.GetAddress()
+			receiver := s.chainB.SenderAccount.GetAddress()
+			packetData := transfertypes.NewFungibleTokenPacketData(
+				bondDenom,
+				sendAmt.String(),
+				sender.String(),
+				receiver.String(),
+				"",
+			)
+			path := s.pathAToB
+			packet = channeltypes.Packet{
+				Sequence:           1,
+				SourcePort:         path.EndpointA.ChannelConfig.PortID,
+				SourceChannel:      path.EndpointA.ChannelID,
+				DestinationPort:    path.EndpointB.ChannelConfig.PortID,
+				DestinationChannel: path.EndpointB.ChannelID,
+				Data:               packetData.GetBytes(),
+				TimeoutHeight:      s.chainB.GetTimeoutHeight(),
+				TimeoutTimestamp:   0,
+			}
+
+			ack = channeltypes.NewResultAcknowledgement([]byte{1}).Acknowledgement()
+
+			if tc.malleate != nil {
+				tc.malleate()
+			}
+
+			transferStack, ok := evmApp.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
+			s.Require().True(ok)
+
+			sourceChan := s.pathAToB.EndpointA.GetChannel()
+			onAcknowledgementPacket := func() error {
+				return transferStack.OnAcknowledgementPacket(
+					ctx,
+					sourceChan.Version,
+					packet,
+					ack,
+					receiver,
+				)
+			}
+			if tc.onSendRequired {
+				timeoutHeight := clienttypes.NewHeight(1, 110)
+				msg := transfertypes.NewMsgTransfer(
+					path.EndpointA.ChannelConfig.PortID,
+					path.EndpointA.ChannelID,
+					sdk.NewCoin(bondDenom, sendAmt),
+					sender.String(),
+					receiver.String(),
+					timeoutHeight, 0, "",
+				)
+				res, err := s.evmChainA.SendMsgs(msg)
+				s.Require().NoError(err) // message committed
+				packet, err := ibctesting.ParsePacketFromEvents(res.Events)
+				s.Require().NoError(err)
+
+				// relay send
+				err = path.RelayPacket(packet)
+				s.Require().NoError(err) // relay committed
+			}
+
+			err = onAcknowledgementPacket()
+			if tc.expError == "" {
+				s.Require().NoError(err)
+			} else {
+				s.Require().Error(err)
+				s.Require().Contains(err.Error(), tc.expError)
 			}
 		})
 	}
