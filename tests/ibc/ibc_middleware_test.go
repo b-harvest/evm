@@ -395,12 +395,12 @@ func (s *MiddlewareTestSuite) TestOnTimeoutPacket() {
 				tc.malleate()
 			}
 
-			timeoutStack, ok := evmApp.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
+			transferStack, ok := evmApp.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
 			s.Require().True(ok)
 
 			sourceChan := s.pathAToB.EndpointA.GetChannel()
 			onTimeoutPacket := func() error {
-				return timeoutStack.OnTimeoutPacket(
+				return transferStack.OnTimeoutPacket(
 					ctx,
 					sourceChan.Version,
 					packet,

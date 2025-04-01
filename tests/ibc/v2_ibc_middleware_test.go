@@ -363,9 +363,9 @@ func (s *MiddlewareV2TestSuite) TestOnAcknowledgementPacket() {
 			}
 
 			// erc20 module is routed as top level middleware
-			erc20mod := s.evmChainA.App.GetIBCKeeper().ChannelKeeperV2.Router.Route(ibctesting.TransferPort)
+			transferStack := s.evmChainA.App.GetIBCKeeper().ChannelKeeperV2.Router.Route(ibctesting.TransferPort)
 			if tc.onSendRequired {
-				s.NoError(erc20mod.OnSendPacket(
+				s.NoError(transferStack.OnSendPacket(
 					ctx,
 					s.pathAToB.EndpointA.ClientID,
 					s.pathAToB.EndpointB.ClientID,
@@ -375,7 +375,7 @@ func (s *MiddlewareV2TestSuite) TestOnAcknowledgementPacket() {
 				))
 			}
 			onAckPacket := func() error {
-				return erc20mod.OnAcknowledgementPacket(
+				return transferStack.OnAcknowledgementPacket(
 					ctx,
 					s.pathAToB.EndpointA.ClientID,
 					s.pathAToB.EndpointB.ClientID,
@@ -452,9 +452,9 @@ func (s *MiddlewareV2TestSuite) TestOnTimeoutPacket() {
 				tc.malleate()
 			}
 
-			erc20mod := s.evmChainA.App.GetIBCKeeper().ChannelKeeperV2.Router.Route(ibctesting.TransferPort)
+			transferStack := s.evmChainA.App.GetIBCKeeper().ChannelKeeperV2.Router.Route(ibctesting.TransferPort)
 			if tc.onSendRequired {
-				s.NoError(erc20mod.OnSendPacket(
+				s.NoError(transferStack.OnSendPacket(
 					ctx,
 					s.pathAToB.EndpointA.ClientID,
 					s.pathAToB.EndpointB.ClientID,
@@ -465,7 +465,7 @@ func (s *MiddlewareV2TestSuite) TestOnTimeoutPacket() {
 			}
 
 			onTimeoutPacket := func() error {
-				return erc20mod.OnTimeoutPacket(
+				return transferStack.OnTimeoutPacket(
 					ctx,
 					s.pathAToB.EndpointA.ClientID,
 					s.pathAToB.EndpointB.ClientID,
