@@ -14,7 +14,9 @@ import (
 
 	"github.com/cosmos/evm/evmd"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
+	"github.com/cosmos/evm/testutil"
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
+	"github.com/cosmos/evm/x/erc20/types"
 	"github.com/cosmos/evm/x/erc20/v2"
 )
 
@@ -221,11 +223,13 @@ func (s *MiddlewareV2TestSuite) TestOnRecvPacket() {
 			ctx = s.chainB.GetContext()
 			bondDenom, err := s.chainB.GetSimApp().StakingKeeper.BondDenom(ctx)
 			s.Require().NoError(err)
+			receiver := s.evmChainA.SenderAccount.GetAddress()
+			sendAmt := ibctesting.DefaultCoinAmount
 			packetData = transfertypes.NewFungibleTokenPacketData(
 				bondDenom,
-				ibctesting.DefaultCoinAmount.String(),
+				sendAmt.String(),
 				s.chainB.SenderAccount.GetAddress().String(),
-				s.evmChainA.SenderAccount.GetAddress().String(),
+				receiver.String(),
 				"",
 			)
 
@@ -239,22 +243,38 @@ func (s *MiddlewareV2TestSuite) TestOnRecvPacket() {
 				tc.malleate()
 			}
 
+			evmApp := s.evmChainA.App.(*evmd.EVMD)
 			// erc20 module is routed as top level middleware
-			erc20mod := s.evmChainA.App.GetIBCKeeper().ChannelKeeperV2.Router.Route(ibctesting.TransferPort)
+			transferStack := evmApp.GetIBCKeeper().ChannelKeeperV2.Router.Route(ibctesting.TransferPort)
+			sourceClient := s.pathBToA.EndpointB.ClientID
 			onRecvPacket := func() channeltypesv2.RecvPacketResult {
 				ctx = s.evmChainA.GetContext()
-				return erc20mod.OnRecvPacket(
+				return transferStack.OnRecvPacket(
 					ctx,
-					s.pathBToA.EndpointB.ClientID,
+					sourceClient,
 					s.pathBToA.EndpointA.ClientID,
 					1,
 					payload,
-					s.evmChainA.SenderAccount.GetAddress(),
+					receiver,
 				)
 			}
 
 			recvResult := onRecvPacket()
 			s.Require().Equal(tc.expResult, recvResult.Status)
+			if recvResult.Status == channeltypesv2.PacketStatus_Success {
+				// make sure voucher coins are sent to the receiver
+				data, ackErr := transfertypes.UnmarshalPacketData(packetData.GetBytes(), transfertypes.V1, "")
+				s.Require().Nil(ackErr)
+				voucherDenom := testutil.GetVoucherDenomFromPacketData(data, payload.GetSourcePort(), sourceClient)
+				voucherCoin := evmApp.BankKeeper.GetBalance(ctx, receiver, voucherDenom)
+				s.Require().Equal(sendAmt.String(), voucherCoin.Amount.String())
+				// make sure token pair is registered
+				tp, err := types.NewTokenPairSTRv2(voucherDenom)
+				s.Require().NoError(err)
+				tokenPair, found := evmApp.Erc20Keeper.GetTokenPair(ctx, tp.GetID())
+				s.Require().True(found)
+				s.Require().Equal(voucherDenom, tokenPair.Denom)
+			}
 		})
 	}
 }
