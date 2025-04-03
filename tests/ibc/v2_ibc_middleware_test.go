@@ -24,31 +24,31 @@ import (
 type MiddlewareV2TestSuite struct {
 	testifysuite.Suite
 
-	coordinator *ibctesting.Coordinator
+	coordinator *evmibctesting.Coordinator
 
 	// testing chains used for convenience and readability
-	evmChainA *ibctesting.TestChain
-	chainB    *ibctesting.TestChain
+	evmChainA *evmibctesting.TestChain
+	chainB    *evmibctesting.TestChain
 
 	// evmChainA to chainB for testing OnSendPacket, OnAckPacket, and OnTimeoutPacket
-	pathAToB *ibctesting.Path
+	pathAToB *evmibctesting.Path
 	// chainB to evmChainA for testing OnRecvPacket
-	pathBToA *ibctesting.Path
+	pathBToA *evmibctesting.Path
 }
 
 func (suite *MiddlewareV2TestSuite) SetupTest() {
 	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1)
-	suite.evmChainA = suite.coordinator.GetChain(ibctesting.GetChainID(1))
-	suite.chainB = suite.coordinator.GetChain(ibctesting.GetChainID(2))
+	suite.evmChainA = suite.coordinator.GetChain(evmibctesting.GetChainID(1))
+	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 
 	// setup between evmChainA and chainB
 	// pathAToB.EndpointA = endpoint on evmChainA
 	// pathAToB.EndpointB = endpoint on chainB
-	suite.pathAToB = ibctesting.NewPath(suite.evmChainA, suite.chainB)
+	suite.pathAToB = evmibctesting.NewPath(suite.evmChainA, suite.chainB)
 	// setup between chainB and evmChainA
 	// pathBToA.EndpointA = endpoint on chainB
 	// pathBToA.EndpointB = endpoint on evmChainA
-	suite.pathBToA = ibctesting.NewPath(suite.chainB, suite.evmChainA)
+	suite.pathBToA = evmibctesting.NewPath(suite.chainB, suite.evmChainA)
 
 	// setup IBC v2 paths between the chains
 	suite.pathAToB.SetupV2()

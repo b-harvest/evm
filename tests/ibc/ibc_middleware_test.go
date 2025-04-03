@@ -2,16 +2,22 @@ package ibc
 
 import (
 	"errors"
+	"math/big"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	"github.com/ethereum/go-ethereum/common"
 	testifysuite "github.com/stretchr/testify/suite"
 
+	"github.com/cosmos/evm/contracts"
 	"github.com/cosmos/evm/evmd"
 	"github.com/cosmos/evm/ibc"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
@@ -19,20 +25,21 @@ import (
 	"github.com/cosmos/evm/x/erc20"
 	erc20Keeper "github.com/cosmos/evm/x/erc20/keeper"
 	"github.com/cosmos/evm/x/erc20/types"
+	erc20types "github.com/cosmos/evm/x/erc20/types"
 )
 
 // MiddlewareTestSuite tests the IBC middleware for the ERC20 module.
 type MiddlewareTestSuite struct {
 	testifysuite.Suite
 
-	coordinator *ibctesting.Coordinator
+	coordinator *evmibctesting.Coordinator
 
 	// testing chains used for convenience and readability
-	evmChainA *ibctesting.TestChain
-	chainB    *ibctesting.TestChain
+	evmChainA *evmibctesting.TestChain
+	chainB    *evmibctesting.TestChain
 
-	pathAToB *ibctesting.Path
-	pathBToA *ibctesting.Path
+	pathAToB *evmibctesting.Path
+	pathBToA *evmibctesting.Path
 }
 
 func (s *MiddlewareTestSuite) SetupTest() {
@@ -40,14 +47,14 @@ func (s *MiddlewareTestSuite) SetupTest() {
 	s.evmChainA = s.coordinator.GetChain(ibctesting.GetChainID(1))
 	s.chainB = s.coordinator.GetChain(ibctesting.GetChainID(2))
 
-	s.pathAToB = ibctesting.NewPath(s.evmChainA, s.chainB)
+	s.pathAToB = evmibctesting.NewPath(s.evmChainA, s.chainB)
 	s.pathAToB.EndpointA.ChannelConfig.PortID = ibctesting.TransferPort
 	s.pathAToB.EndpointB.ChannelConfig.PortID = ibctesting.TransferPort
 	s.pathAToB.EndpointA.ChannelConfig.Version = transfertypes.V1
 	s.pathAToB.EndpointB.ChannelConfig.Version = transfertypes.V1
 	s.pathAToB.Setup()
 
-	s.pathBToA = ibctesting.NewPath(s.chainB, s.evmChainA)
+	s.pathBToA = evmibctesting.NewPath(s.chainB, s.evmChainA)
 	s.pathBToA.EndpointA.ChannelConfig.PortID = ibctesting.TransferPort
 	s.pathBToA.EndpointB.ChannelConfig.PortID = ibctesting.TransferPort
 	s.pathBToA.EndpointA.ChannelConfig.Version = transfertypes.V1
@@ -149,12 +156,13 @@ func (s *MiddlewareTestSuite) TestOnRecvPacket() {
 				receiver.String(),
 				"",
 			)
+			path := s.pathAToB
 			packet = channeltypes.Packet{
 				Sequence:           1,
-				SourcePort:         s.pathBToA.EndpointB.ChannelConfig.PortID,
-				SourceChannel:      s.pathBToA.EndpointB.ChannelID,
-				DestinationPort:    s.pathBToA.EndpointA.ChannelConfig.PortID,
-				DestinationChannel: s.pathBToA.EndpointA.ChannelID,
+				SourcePort:         path.EndpointB.ChannelConfig.PortID,
+				SourceChannel:      path.EndpointB.ChannelID,
+				DestinationPort:    path.EndpointA.ChannelConfig.PortID,
+				DestinationChannel: path.EndpointA.ChannelID,
 				Data:               packetData.GetBytes(),
 				TimeoutHeight:      s.evmChainA.GetTimeoutHeight(),
 				TimeoutTimestamp:   0,
@@ -168,7 +176,7 @@ func (s *MiddlewareTestSuite) TestOnRecvPacket() {
 			s.Require().True(ok)
 
 			ctx = s.evmChainA.GetContext()
-			sourceChan := s.pathBToA.EndpointB.GetChannel()
+			sourceChan := path.EndpointB.GetChannel()
 			onRecvPacket := func() ibcexported.Acknowledgement {
 				return transferStack.OnRecvPacket(
 					ctx,
@@ -203,6 +211,116 @@ func (s *MiddlewareTestSuite) TestOnRecvPacket() {
 			}
 		})
 	}
+}
+
+// TestOnRecvPacketNativeErc20 tests the OnRecvPacket method for native ERC20 tokens.
+func (s *MiddlewareTestSuite) TestOnRecvPacketNativeErc20() {
+	s.SetupTest()
+	evmCtx := s.evmChainA.GetContext()
+	evmApp := s.evmChainA.App.(*evmd.EVMD)
+
+	// Scenario: Native ERC20 token transfer from evmChainA to chainB
+	deployedContractAddr, err := evmApp.Erc20Keeper.DeployERC20Contract(evmCtx, banktypes.Metadata{
+		DenomUnits: []*banktypes.DenomUnit{
+			{
+				Denom:    "example",
+				Exponent: 18,
+			},
+		},
+		Name:   "Example",
+		Symbol: "Ex",
+	})
+	s.Require().NoError(err)
+	s.evmChainA.NextBlock()
+	// Create a new token pair for the deployed contract.
+	_, err = evmApp.Erc20Keeper.RegisterERC20(
+		evmCtx,
+		&erc20types.MsgRegisterERC20{
+			Authority:      authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+			Erc20Addresses: []string{deployedContractAddr.Hex()},
+		},
+	)
+	s.Require().NoError(err)
+
+	// evmChainA sender must have `sendAmt` erc20 tokens before sending the token to chainB via IBC.
+	abi := contracts.ERC20MinterBurnerDecimalsContract.ABI
+	nativeErc20Denom := types.CreateDenom(deployedContractAddr.String())
+	sendAmt := evmibctesting.DefaultCoinAmount
+	evmChainAAccount := s.evmChainA.SenderAccount.GetAddress()
+	// mint native erc20
+	_, err = evmApp.EVMKeeper.CallEVM(
+		evmCtx, abi, erc20types.ModuleAddress, deployedContractAddr,
+		true, "mint", common.BytesToAddress(evmChainAAccount), big.NewInt(sendAmt.Int64()),
+	)
+	s.Require().NoError(err)
+	erc20Bal := evmApp.Erc20Keeper.BalanceOf(evmCtx, abi, deployedContractAddr, common.BytesToAddress(evmChainAAccount))
+	s.Require().Equal(sendAmt.String(), erc20Bal.String(), "erc20 balance should be equal to minted sendAmt")
+
+	timeoutHeight := clienttypes.NewHeight(1, 110)
+	path := s.pathAToB
+	chainBAccount := s.chainB.SenderAccount.GetAddress()
+	// IBC send from evmChainA to chainB.
+	msg := transfertypes.NewMsgTransfer(
+		path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID,
+		sdk.NewCoin(nativeErc20Denom, sendAmt), evmChainAAccount.String(), chainBAccount.String(),
+		timeoutHeight, 0, "",
+	)
+	_, err = s.evmChainA.SendMsgs(msg)
+	s.Require().NoError(err) // message committed
+	erc20BalAfterIbcTransfer := evmApp.Erc20Keeper.BalanceOf(evmCtx, abi, deployedContractAddr, common.BytesToAddress(evmChainAAccount))
+	s.Require().Equal(erc20BalAfterIbcTransfer.String(), new(big.Int).Sub(erc20Bal, sendAmt.BigInt()).String(), "erc20 balance should be equal to minted sendAmt - sendAmt after IBC transfer")
+	// Check native erc20 token is escrowed on evmChainA for sending to chainB.
+	escrowAddr := transfertypes.GetEscrowAddress(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+	escrowedBal := evmApp.BankKeeper.GetBalance(evmCtx, escrowAddr, nativeErc20Denom)
+	s.Require().Equal(escrowedBal.Amount.String(), sendAmt.String(), "escrowed balance should be equal to sendAmt after IBC transfer")
+
+	// chainBNativeErc20Denom is the native erc20 token denom on chainB from evmChainA through IBC.
+	chainBNativeErc20Denom := transfertypes.NewDenom(
+		nativeErc20Denom,
+		transfertypes.NewHop(
+			s.pathAToB.EndpointB.ChannelConfig.PortID,
+			s.pathAToB.EndpointB.ChannelID,
+		),
+	)
+	// Mock the transfer of received native erc20 token by evmChainA to evmChainA.
+	// Note that ChainB didn't receive the native erc20 token. We just assume that.
+	packetData := transfertypes.NewFungibleTokenPacketData(
+		chainBNativeErc20Denom.Path(),
+		sendAmt.String(),
+		chainBAccount.String(),
+		evmChainAAccount.String(),
+		"",
+	)
+	packet := channeltypes.Packet{
+		Sequence:           1,
+		SourcePort:         path.EndpointB.ChannelConfig.PortID,
+		SourceChannel:      path.EndpointB.ChannelID,
+		DestinationPort:    path.EndpointA.ChannelConfig.PortID,
+		DestinationChannel: path.EndpointA.ChannelID,
+		Data:               packetData.GetBytes(),
+		TimeoutHeight:      s.evmChainA.GetTimeoutHeight(),
+		TimeoutTimestamp:   0,
+	}
+
+	transferStack, ok := s.evmChainA.App.GetIBCKeeper().PortKeeper.Route(transfertypes.ModuleName)
+	s.Require().True(ok)
+
+	sourceChan := path.EndpointB.GetChannel()
+	onRecvPacket := func() ibcexported.Acknowledgement {
+		return transferStack.OnRecvPacket(
+			evmCtx,
+			sourceChan.Version,
+			packet,
+			s.evmChainA.SenderAccount.GetAddress())
+	}
+
+	ack := onRecvPacket()
+	s.Require().True(ack.Success())
+	// make sure voucher coins are sent to the sender
+	_, ackErr := transfertypes.UnmarshalPacketData(packetData.GetBytes(), sourceChan.Version, "")
+	s.Require().Nil(ackErr)
+	escrowedBal = evmApp.BankKeeper.GetBalance(evmCtx, escrowAddr, nativeErc20Denom)
+	s.Require().True(escrowedBal.IsZero(), "escrowed balance should be un-escrowed after receiving the packet")
 }
 
 func (s *MiddlewareTestSuite) TestOnAcknowledgementPacket() {
