@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -13,10 +14,12 @@ import (
 	cmtcli "github.com/cometbft/cometbft/libs/cli"
 
 	dbm "github.com/cosmos/cosmos-db"
+
 	cosmosevmcmd "github.com/cosmos/evm/client"
 	evmdconfig "github.com/cosmos/evm/cmd/evmd/config"
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/cosmos/evm/evmd"
+	"github.com/cosmos/evm/evmd/testutil"
 	cosmosevmserver "github.com/cosmos/evm/server"
 	cosmosevmserverconfig "github.com/cosmos/evm/server/config"
 	srvflags "github.com/cosmos/evm/server/flags"
@@ -49,14 +52,6 @@ import (
 	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
 )
 
-type emptyAppOptions struct{}
-
-func (ao emptyAppOptions) Get(_ string) interface{} { return nil }
-
-func NoOpEvmAppOptions(_ string) error {
-	return nil
-}
-
 // NewRootCmd creates a new root command for evmd. It is called once in the
 // main function.
 func NewRootCmd() *cobra.Command {
@@ -68,8 +63,8 @@ func NewRootCmd() *cobra.Command {
 		dbm.NewMemDB(),
 		nil,
 		true,
-		emptyAppOptions{},
-		NoOpEvmAppOptions,
+		simtestutil.EmptyAppOptions{},
+		testutil.NoOpEvmAppOptions,
 	)
 
 	encodingConfig := sdktestutil.TestEncodingConfig{

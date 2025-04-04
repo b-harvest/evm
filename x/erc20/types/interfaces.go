@@ -3,6 +3,10 @@ package types
 import (
 	"context"
 
+	"cosmossdk.io/log"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
+	"github.com/cosmos/ibc-go/v10/modules/core/exported"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -45,6 +49,13 @@ type EVMKeeper interface {
 	SetCode(ctx sdk.Context, hash []byte, bytecode []byte)
 	SetAccount(ctx sdk.Context, address common.Address, account statedb.Account) error
 	GetAccount(ctx sdk.Context, address common.Address) *statedb.Account
+}
+
+type ERC20Keeper interface {
+	OnRecvPacket(ctx sdk.Context, packet channeltypes.Packet, ack exported.Acknowledgement) exported.Acknowledgement
+	OnAcknowledgementPacket(ctx sdk.Context, packet channeltypes.Packet, data transfertypes.FungibleTokenPacketData, ack channeltypes.Acknowledgement) error
+	OnTimeoutPacket(ctx sdk.Context, packet channeltypes.Packet, data transfertypes.FungibleTokenPacketData) error
+	Logger(ctx sdk.Context) log.Logger
 }
 
 type (

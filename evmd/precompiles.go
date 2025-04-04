@@ -6,6 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	channelkeeper "github.com/cosmos/ibc-go/v10/modules/core/04-channel/keeper"
+
 	bankprecompile "github.com/cosmos/evm/precompiles/bank"
 	"github.com/cosmos/evm/precompiles/bech32"
 	distprecompile "github.com/cosmos/evm/precompiles/distribution"
@@ -19,7 +21,6 @@ import (
 	transferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	"github.com/cosmos/evm/x/vm/core/vm"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
-	channelkeeper "github.com/cosmos/ibc-go/v8/modules/core/04-channel/keeper"
 
 	evidencekeeper "cosmossdk.io/x/evidence/keeper"
 
@@ -43,7 +44,7 @@ func NewAvailableStaticPrecompiles(
 	erc20Keeper erc20Keeper.Keeper,
 	authzKeeper authzkeeper.Keeper,
 	transferKeeper transferkeeper.Keeper,
-	channelKeeper channelkeeper.Keeper,
+	channelKeeper *channelkeeper.Keeper,
 	evmKeeper *evmkeeper.Keeper,
 	govKeeper govkeeper.Keeper,
 	slashingKeeper slashingkeeper.Keeper,
