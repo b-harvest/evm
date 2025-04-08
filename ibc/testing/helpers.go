@@ -1,6 +1,7 @@
 package ibctesting
 
 import (
+	"math/big"
 	"math/rand"
 	"testing"
 	"time"
@@ -8,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+
+	"github.com/cosmos/evm/cmd/evmd/config"
 
 	bam "github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -25,11 +28,14 @@ func SignAndDeliver(
 	chainID string, accNums, accSeqs []uint64, expPass bool, blockTime time.Time, nextValHash []byte, priv ...cryptotypes.PrivKey,
 ) (*abci.ResponseFinalizeBlock, error) {
 	tb.Helper()
+	sdkExp := new(big.Int).Exp(big.NewInt(10), big.NewInt(6), nil)
 	tx, err := simtestutil.GenSignedMockTx(
 		rand.New(rand.NewSource(time.Now().UnixNano())),
 		txCfg,
 		msgs,
-		sdk.Coins{sdk.NewInt64Coin(sdk.DefaultBondDenom, 0)},
+		// Note: evmChain requires for gas price higher than base fee (see fee_checker.go).
+		// Other Cosmos chains using simapp don’t rely on gas prices, so this works even if simapp isn’t aware of evmChain’s BaseDenom.
+		sdk.Coins{sdk.NewInt64Coin(config.BaseDenom, new(big.Int).Mul(big.NewInt(10000000000), sdkExp).Int64())},
 		simtestutil.DefaultGenTxGas,
 		chainID,
 		accNums,

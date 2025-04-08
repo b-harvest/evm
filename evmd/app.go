@@ -907,11 +907,6 @@ func (app *EVMD) DefaultGenesis() map[string]json.RawMessage {
 	erc20GenState := NewErc20GenesisState()
 	genesis[erc20types.ModuleName] = app.appCodec.MustMarshalJSON(erc20GenState)
 
-	// This is for making tests easier, as we don't need to set gas prices.
-	// For example, without this, we must copy many util functions like SignAndDeliver to set gas prices to test IBC.
-	feeMarketState := NewFeeMarketGenesisState()
-	genesis[feemarkettypes.ModuleName] = app.appCodec.MustMarshalJSON(feeMarketState)
-
 	return genesis
 }
 
