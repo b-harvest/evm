@@ -1,5 +1,6 @@
 package types
 
+// TODO: remove
 // Osmosis channels
 const (
 	OsmosisTestnetChannelID = "channel-215"
