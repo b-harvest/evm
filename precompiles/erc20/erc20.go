@@ -15,7 +15,6 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 )
 
@@ -56,7 +55,6 @@ type Precompile struct {
 func NewPrecompile(
 	tokenPair erc20types.TokenPair,
 	bankKeeper bankkeeper.Keeper,
-	authzKeeper authzkeeper.Keeper,
 	transferKeeper transferkeeper.Keeper,
 ) (*Precompile, error) {
 	newABI, err := cmn.LoadABI(f, abiPath)
@@ -67,8 +65,6 @@ func NewPrecompile(
 	p := &Precompile{
 		Precompile: cmn.Precompile{
 			ABI:                  newABI,
-			AuthzKeeper:          authzKeeper,
-			ApprovalExpiration:   cmn.DefaultExpirationDuration,
 			KvGasConfig:          storetypes.GasConfig{},
 			TransientKVGasConfig: storetypes.GasConfig{},
 		},
