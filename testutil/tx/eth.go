@@ -94,13 +94,14 @@ func CreateEthTx(
 	ctx sdk.Context,
 	exampleApp *exampleapp.EVMD,
 	privKey cryptotypes.PrivKey,
-	from sdk.AccAddress,
-	dest sdk.AccAddress,
+	dest []byte,
 	amount *big.Int,
+	data []byte,
 	nonceIncrement int,
 ) (*evmtypes.MsgEthereumTx, error) {
-	toAddr := common.BytesToAddress(dest.Bytes())
-	fromAddr := common.BytesToAddress(from.Bytes())
+
+	toAddr := common.BytesToAddress(dest)
+	fromAddr := common.BytesToAddress(privKey.PubKey().Bytes())
 	chainID := evmtypes.GetEthChainConfig().ChainID
 
 	baseFeeRes, err := exampleApp.EVMKeeper.BaseFee(ctx, &evmtypes.QueryBaseFeeRequest{})
@@ -119,6 +120,7 @@ func CreateEthTx(
 		GasLimit:  100000,
 		GasFeeCap: baseFee,
 		GasTipCap: big.NewInt(1),
+		Input:     data,
 		Accesses:  &ethtypes.AccessList{},
 	}
 	msgEthereumTx := evmtypes.NewTx(evmTxParams)

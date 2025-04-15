@@ -28,10 +28,6 @@ import (
 	"github.com/cosmos/evm/evmd"
 	evmibctesting "github.com/cosmos/evm/ibc/testing"
 	"github.com/cosmos/evm/precompiles/ics20"
-	"github.com/cosmos/evm/testutil/integration/os/factory"
-	"github.com/cosmos/evm/testutil/integration/os/grpc"
-	testkeyring "github.com/cosmos/evm/testutil/integration/os/keyring"
-	"github.com/cosmos/evm/testutil/integration/os/network"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
 	evmante "github.com/cosmos/evm/x/vm/ante"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
@@ -51,12 +47,12 @@ type ICS20TransferTestSuiteV2 struct {
 	coordinator *evmibctesting.Coordinator
 
 	// testing chains used for convenience and readability
-	evmChainA   *evmibctesting.TestChain
-	factory     factory.TxFactory
-	grpcHandler grpc.Handler
-	keyring     testkeyring.Keyring
-	bondDenom   string
-	precompile  *ics20.Precompile
+	evmChainA *evmibctesting.TestChain
+	//factory     factory.TxFactory
+	//grpcHandler grpc.Handler
+	//keyring     testkeyring.Keyring
+	//bondDenom   string
+	precompile *ics20.Precompile
 
 	chainB *evmibctesting.TestChain
 	chainC *evmibctesting.TestChain
@@ -78,39 +74,30 @@ func (suite *ICS20TransferTestSuiteV2) SetupTest() {
 	//suite.evmChainA.SenderAccount =
 	fmt.Println(evmtypes.GetEVMCoinDenom())
 
-	keyring := testkeyring.New(2)
-	nw := network.NewUnitTestNetwork(
-		network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
-	)
+	//keyring := testkeyring.New(2)
+	//nw := network.NewUnitTestNetwork(
+	//	network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
+	//)
 
-	grpcHandler := grpc.NewIntegrationHandler(nw)
-	txFactory := factory.New(nw, grpcHandler)
-
-	ctx := nw.GetContext()
-	sk := nw.App.StakingKeeper
-	bondDenom, err := sk.BondDenom(ctx)
-	if err != nil {
-		panic(err)
-	}
-
-	suite.bondDenom = bondDenom
-	suite.factory = txFactory
-	suite.grpcHandler = grpcHandler
-	suite.keyring = keyring
+	//grpcHandler := grpc.NewIntegrationHandler(nw)
+	////txFactory := factory.New(nw, grpcHandler)
+	//
+	//suite.grpcHandler = grpcHandler
+	//suite.keyring = keyring
 	//suite.network = nw
 
-	evmApp := suite.evmChainA.App.(*evmd.EVMD)
+	//evmApp := suite.evmChainA.App.(*evmd.EVMD)
 
 	// TODO: consider use app's precompiles[ibcTransferPrecompile.Address()]
-	if suite.precompile, err = ics20.NewPrecompile(
-		*evmApp.StakingKeeper,
-		evmApp.TransferKeeper,
-		evmApp.IBCKeeper.ChannelKeeper,
-		evmApp.AuthzKeeper, // TODO: To be deprecated,
-		evmApp.EVMKeeper,
-	); err != nil {
-		panic(err)
-	}
+	//if suite.precompile, err = ics20.NewPrecompile(
+	//	*evmApp.StakingKeeper,
+	//	evmApp.TransferKeeper,
+	//	evmApp.IBCKeeper.ChannelKeeper,
+	//	evmApp.AuthzKeeper, // TODO: To be deprecated,
+	//	evmApp.EVMKeeper,
+	//); err != nil {
+	//	panic(err)
+	//}
 
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 	suite.chainC = suite.coordinator.GetChain(evmibctesting.GetChainID(3))

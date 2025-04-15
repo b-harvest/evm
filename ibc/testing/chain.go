@@ -3,9 +3,14 @@ package ibctesting
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
+	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -26,6 +31,11 @@ import (
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/evmd"
+	app "github.com/cosmos/evm/evmd"
+	chainutil "github.com/cosmos/evm/evmd/testutil"
+	"github.com/cosmos/evm/testutil/tx"
+	utiltx "github.com/cosmos/evm/testutil/tx"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
@@ -355,6 +365,115 @@ func (chain *TestChain) commitBlock(res *abci.ResponseFinalizeBlock) {
 func (chain *TestChain) sendMsgs(msgs ...sdk.Msg) error {
 	_, err := chain.SendMsgs(msgs...)
 	return err
+}
+
+// Helper function to create and broadcast a ethereum transaction
+func (chain *TestChain) EvmTx(
+	app *app.EVMD,
+	priv cryptotypes.PrivKey,
+	to *common.Address,
+	amount *big.Int,
+	data []byte,
+) (abci.ExecTxResult, error) {
+	ctx := chain.GetContext()
+	msgEthereumTx, err := tx.CreateEthTx(ctx, app, priv, to.Bytes(), amount, data, 1)
+	require.NoError(chain.TB, err)
+
+	return chainutil.DeliverEthTx(app, priv, msgEthereumTx)
+}
+
+//// Helper function that creates an ethereum transaction
+//func (chain *TestChain) BuildEthTx(
+//	priv *ethsecp256k1.PrivKey,
+//	to *common.Address,
+//	amount *big.Int,
+//	gasLimit uint64,
+//	gasPrice *big.Int,
+//	gasFeeCap *big.Int,
+//	gasTipCap *big.Int,
+//	data []byte,
+//	accesses *ethtypes.AccessList,
+//) *evmtypes.MsgEthereumTx {
+//	app := chain.App.(*evmd.EVMD)
+//	ctx := chain.GetContext()
+//	//app.ChainID()
+//	chainID := app.EVMKeeper.Chain()
+//	from := common.BytesToAddress(priv.PubKey().Address().Bytes())
+//	nonce, err := app.AccountKeeper.GetSequence(ctx, sdk.AccAddress(from.Bytes()))
+//	require.NoError(chain.TB, err)
+//
+//	msgEthereumTx := evmtypes.NewTx(
+//		&evmtypes.EvmTxArgs{
+//			ChainID:   nw.GetEIP155ChainID(),
+//			Nonce:     0,
+//			GasLimit:  gasLimit,
+//			GasFeeCap: baseFeeRes.BaseFee.BigInt(),
+//			GasTipCap: big.NewInt(1),
+//			Input:     nil,
+//			Accesses:  &ethtypes.AccessList{},
+//		})
+//		chainID,
+//		nonce,
+//		to,
+//		amount,
+//		gasLimit,
+//		gasPrice,
+//		gasFeeCap,
+//		gasTipCap,
+//		data,
+//		accesses,
+//	)
+//	msgEthereumTx.From = from.String()
+//	return msgEthereumTx
+//}
+
+func (chain *TestChain) FinalizeEthBlock(priv *ethsecp256k1.PrivKey, msgEthereumTx *evmtypes.MsgEthereumTx) (*abci.ResponseFinalizeBlock, error) {
+	app := chain.App.(*evmd.EVMD)
+	ctx := chain.GetContext()
+	bz := chain.PrepareEthTx(priv, msgEthereumTx)
+	res, err := app.BaseApp.FinalizeBlock(&abci.RequestFinalizeBlock{
+		Height:          app.LastBlockHeight() + 1,
+		Txs:             [][]byte{bz},
+		ProposerAddress: ctx.BlockHeader().ProposerAddress,
+	})
+	return res, err
+}
+
+func (chain *TestChain) PrepareEthTx(priv *ethsecp256k1.PrivKey, msgEthereumTx *evmtypes.MsgEthereumTx) []byte {
+
+	txConfig := chain.TxConfig
+	option, err := codectypes.NewAnyWithValue(&evmtypes.ExtensionOptionsEthereumTx{})
+	require.NoError(chain.TB, err)
+
+	txBuilder := txConfig.NewTxBuilder()
+	builder, ok := txBuilder.(authtx.ExtensionOptionsTxBuilder)
+	require.True(chain.TB, ok)
+	builder.SetExtensionOptions(option)
+
+	// TODO: check the config
+	ethSigner := ethtypes.LatestSignerForChainID(evmtypes.GetEthChainConfig().ChainID)
+	err = msgEthereumTx.Sign(ethSigner, utiltx.NewSigner(priv))
+	require.NoError(chain.TB, err)
+
+	msgEthereumTx.From = ""
+	err = txBuilder.SetMsgs(msgEthereumTx)
+	require.NoError(chain.TB, err)
+
+	txData, err := evmtypes.UnpackTxData(msgEthereumTx.Data)
+	require.NoError(chain.TB, err)
+
+	app := chain.App.(*evmd.EVMD)
+	ctx := chain.GetContext()
+	evmDenom := app.EVMKeeper.GetParams(ctx).EvmDenom
+	fees := sdk.Coins{{Denom: evmDenom, Amount: sdkmath.NewIntFromBigInt(txData.Fee())}}
+	builder.SetFeeAmount(fees)
+	builder.SetGasLimit(msgEthereumTx.GetGas())
+
+	// bz are bytes to be broadcasted over the network
+	bz, err := txConfig.TxEncoder()(txBuilder.GetTx())
+	require.NoError(chain.TB, err)
+
+	return bz
 }
 
 // SendMsgs delivers a transaction through the application using a predefined sender.
