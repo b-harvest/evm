@@ -39,6 +39,7 @@ var activators = map[string]func(*JumpTable){
 	// v1.13.14
 	"ethereum_1153": enable1153,
 	"ethereum_5656": enable5656,
+	"ethereum_4844": enable4844,
 }
 
 // EnableEIP enables the given EIP on the config.
@@ -283,5 +284,22 @@ func opMcopy(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]by
 	// These values are checked for overflow during memory expansion calculation
 	// (the memorySize function on the opcode).
 	scope.Memory.Copy(dst.Uint64(), src.Uint64(), length.Uint64())
+	return nil, nil
+}
+
+// enable4844 applies EIP-4844 (BLOBHASH opcode)
+func enable4844(jt *JumpTable) {
+	jt[BLOBHASH] = &operation{
+		execute:     opBlobHash,
+		constantGas: GasFastestStep,
+		minStack:    minStack(1, 1),
+		maxStack:    maxStack(1, 1),
+	}
+}
+
+// opBlobHash implements the BLOBHASH opcode
+func opBlobHash(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
+	index := scope.Stack.Peek()
+	index.Clear()
 	return nil, nil
 }
