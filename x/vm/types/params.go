@@ -29,6 +29,7 @@ var (
 		"ethereum_1153", // Transient Storage
 		"ethereum_5656", // MCOPY opcode
 		"ethereum_4844", // BLOBHASH opcode
+		"ethereum_7516", // BLOBBASEFEE opcode
 	}
 	// DefaultEVMChannels defines a list of IBC channels that connect to EVM chains like injective or cronos.
 	DefaultEVMChannels              []string
