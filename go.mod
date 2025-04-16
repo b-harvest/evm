@@ -257,6 +257,7 @@ replace (
 	cosmossdk.io/store => github.com/b-harvest/cosmos-sdk/store v0.0.0-20250324051345-ddad0e6f75cb
 	github.com/cometbft/cometbft => github.com/b-harvest/cometbft v0.0.0-20250324035653-78e589510249
 	github.com/cosmos/cosmos-sdk => github.com/b-harvest/cosmos-sdk v0.0.0-20250324051359-31fe6618dc61
+	github.com/ethereum/go-ethereum => github.com/b-harvest/go-ethereum v0.0.0-20250416151150-60099d9e9cdd
 )
 
 replace (
@@ -264,8 +265,6 @@ replace (
 	cosmossdk.io/core => cosmossdk.io/core v0.11.0
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
-	// use Evmos geth fork
-	github.com/ethereum/go-ethereum => github.com/b-harvest/go-ethereum v0.0.0-20250415195537-066cc94f2130
 	// Security Advisory https://github.com/advisories/GHSA-h395-qcrw-5vmq
 	github.com/gin-gonic/gin => github.com/gin-gonic/gin v1.9.1
 	// replace broken goleveldb
