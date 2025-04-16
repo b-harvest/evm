@@ -7,6 +7,7 @@ package ibc
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 
 	storetypes "cosmossdk.io/store/types"
@@ -39,7 +40,8 @@ type ICS20TransferTestSuite struct {
 }
 
 func (suite *ICS20TransferTestSuite) SetupTest() {
-	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 2)
+	// TODO: cosmos chain case
+	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 2, 0)
 	suite.chainA = suite.coordinator.GetChain(evmibctesting.GetChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 
@@ -112,6 +114,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			tc.malleate()
 
 			evmApp := suite.chainA.App.(*evmd.EVMD)
+
 			// TODO: fix to tc's coin
 			sourceDenomToTransfer, err = evmApp.StakingKeeper.BondDenom(suite.chainA.GetContext())
 			suite.Require().NoError(err)
@@ -134,25 +137,40 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				WithGasMeter(storetypes.NewInfiniteGasMeter())
 
 			// TODO: fix to use suite.chainA.EvmTx() for ibc commitment by tx
-			evmRes, err := evmApp.EVMKeeper.CallEVM(
-				ctx,
-				suite.chainAPrecompile.ABI,
-				sourceAddr,
-				suite.chainAPrecompile.Address(),
-				true,
-				"transfer",
-				//suite.keyring.GetAddr(0).String(),
+			data, err := suite.chainAPrecompile.ABI.Pack("transfer",
 				pathAToB.EndpointA.ChannelConfig.PortID,
 				pathAToB.EndpointA.ChannelID,
 				originalCoin.Denom,
 				originalCoin.Amount.BigInt(),
-				//big.NewInt(msg.Token.Amount.Int64()).String(),
 				sourceAddr,
 				receiverAddr.String(),
 				timeoutHeight,
 				uint64(0),
 				"",
 			)
+			suite.Require().NoError(err)
+			res, err := suite.chainA.EvmTx(suite.chainA.SenderPrivKey, suite.chainAPrecompile.Address(), big.NewInt(0), data)
+			// TODO: WIP debugging
+			// {0 []   0 0 [] } log: max priority fee per gas higher than max fee per gas (1 > 0): invalid gas cap: invalid request [/Users/dongsamb/git-local/evm/evmd/testutil/abci.go:198]
+			fmt.Println(res, err)
+			suite.Require().NoError(err)
+			//evmRes, err := evmApp.EVMKeeper.CallEVM(
+			//	ctx,
+			//	suite.chainAPrecompile.ABI,
+			//	sourceAddr,
+			//	suite.chainAPrecompile.Address(),
+			//	true,
+			//	"transfer",
+			//	pathAToB.EndpointA.ChannelConfig.PortID,
+			//	pathAToB.EndpointA.ChannelID,
+			//	originalCoin.Denom,
+			//	originalCoin.Amount.BigInt(),
+			//	sourceAddr,
+			//	receiverAddr.String(),
+			//	timeoutHeight,
+			//	uint64(0),
+			//	"",
+			//)
 			// check that the balance for evmChainA is updated
 			chainABalanceBeforeCommit := evmApp.BankKeeper.GetBalance(
 				suite.chainA.GetContext(),
@@ -162,7 +180,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			//evmApp.Commit()
 			//evmApp.CommitMultiStore()
 			suite.chainA.NextBlock()
-			fmt.Println(evmRes, err)
+			//fmt.Println(evmRes, err)
 
 			// TODO: convert events from logs
 			packet, err := evmibctesting.ParsePacketFromEvents(ctx.EventManager().ABCIEvents())

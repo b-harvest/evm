@@ -184,7 +184,7 @@ func BroadcastTxBytes(app *app.EVMD, txEncoder sdk.TxEncoder, tx sdk.Tx) (abci.E
 		return abci.ExecTxResult{}, err
 	}
 
-	req := abci.RequestFinalizeBlock{Txs: [][]byte{bz}}
+	req := abci.RequestFinalizeBlock{Txs: [][]byte{bz}, Height: app.LastBlockHeight() + 1}
 
 	res, err := app.BaseApp.FinalizeBlock(&req)
 	if err != nil {

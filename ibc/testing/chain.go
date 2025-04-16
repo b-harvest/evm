@@ -31,7 +31,6 @@ import (
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/evmd"
-	app "github.com/cosmos/evm/evmd"
 	chainutil "github.com/cosmos/evm/evmd/testutil"
 	"github.com/cosmos/evm/testutil/tx"
 	utiltx "github.com/cosmos/evm/testutil/tx"
@@ -369,12 +368,12 @@ func (chain *TestChain) sendMsgs(msgs ...sdk.Msg) error {
 
 // Helper function to create and broadcast a ethereum transaction
 func (chain *TestChain) EvmTx(
-	app *app.EVMD,
 	priv cryptotypes.PrivKey,
-	to *common.Address,
+	to common.Address,
 	amount *big.Int,
 	data []byte,
 ) (abci.ExecTxResult, error) {
+	app := chain.App.(*evmd.EVMD)
 	ctx := chain.GetContext()
 	msgEthereumTx, err := tx.CreateEthTx(ctx, app, priv, to.Bytes(), amount, data, 1)
 	require.NoError(chain.TB, err)
