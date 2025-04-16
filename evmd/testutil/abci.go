@@ -201,6 +201,37 @@ func BroadcastTxBytes(app *app.EVMD, txEncoder sdk.TxEncoder, tx sdk.Tx) (abci.E
 	return *txRes, nil
 }
 
+// TODO: deprecated, temporary function to test
+// BroadcastTxBytes encodes a transaction and calls DeliverTx on the app.
+func BroadcastEthTxBytes(app *app.EVMD, txEncoder sdk.TxEncoder, tx sdk.Tx) (abci.ExecTxResult, error) {
+	// bz are bytes to be broadcasted over the network
+	bz, err := txEncoder(tx)
+	if err != nil {
+		return abci.ExecTxResult{}, err
+	}
+
+	//ctx := app.GetBaseApp().NewUncachedContext(false, app.BaseApp.Get)
+	req := abci.RequestFinalizeBlock{
+		Height: app.LastBlockHeight() + 1,
+		Txs:    [][]byte{bz},
+		//ProposerAddress: ctx.BlockHeader().ProposerAddress,
+	}
+
+	res, err := app.BaseApp.FinalizeBlock(&req)
+	if err != nil {
+		return abci.ExecTxResult{}, err
+	}
+	if len(res.TxResults) != 1 {
+		return abci.ExecTxResult{}, fmt.Errorf("unexpected transaction results. Expected 1, got: %d", len(res.TxResults))
+	}
+	txRes := res.TxResults[0]
+	if txRes.Code != 0 {
+		return abci.ExecTxResult{}, errorsmod.Wrapf(errortypes.ErrInvalidRequest, "log: %s", txRes.Log)
+	}
+
+	return *txRes, nil
+}
+
 // commit is a private helper function that runs the EndBlocker logic, commits the changes,
 // updates the header, runs the BeginBlocker function and returns the updated header
 func commit(ctx sdk.Context, app *app.EVMD, t time.Duration, vs *cmttypes.ValidatorSet) (tmproto.Header, error) {

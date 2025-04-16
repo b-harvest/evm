@@ -366,6 +366,7 @@ func (chain *TestChain) sendMsgs(msgs ...sdk.Msg) error {
 	return err
 }
 
+// TODO: deprecated, temporary function to test
 // Helper function to create and broadcast a ethereum transaction
 func (chain *TestChain) EvmTx(
 	priv cryptotypes.PrivKey,
@@ -375,10 +376,67 @@ func (chain *TestChain) EvmTx(
 ) (abci.ExecTxResult, error) {
 	app := chain.App.(*evmd.EVMD)
 	ctx := chain.GetContext()
-	msgEthereumTx, err := tx.CreateEthTx(ctx, app, priv, to.Bytes(), amount, data, 1)
+	msgEthereumTx, err := tx.CreateEthTx(ctx, app, priv, to.Bytes(), amount, data, 0)
 	require.NoError(chain.TB, err)
 
 	return chainutil.DeliverEthTx(app, priv, msgEthereumTx)
+}
+
+// Helper function to create and broadcast a ethereum transaction
+func (chain *TestChain) EvmTxViaManualPackage(
+	priv cryptotypes.PrivKey,
+	to common.Address,
+	amount *big.Int,
+	data []byte,
+) (*abci.ExecTxResult, error) {
+	app := chain.App.(*evmd.EVMD)
+	ctx := chain.GetContext()
+	msgEthereumTx, err := tx.CreateEthTx(ctx, app, priv, to.Bytes(), amount, data, 0)
+
+	txConfig := app.GetTxConfig()
+	tx, err := tx.PrepareEthTx(txConfig, priv, msgEthereumTx)
+	require.NoError(chain.TB, err)
+
+	// bz are bytes to be broadcasted over the network
+	txEncoder := txConfig.TxEncoder()
+	bz, err := txEncoder(tx)
+	require.NoError(chain.TB, err)
+
+	req := abci.RequestFinalizeBlock{
+		Height:          app.LastBlockHeight() + 1,
+		Txs:             [][]byte{bz},
+		ProposerAddress: ctx.BlockHeader().ProposerAddress,
+	}
+
+	res, err := app.BaseApp.FinalizeBlock(&req)
+
+	chain.commitBlock(res)
+
+	require.Len(chain.TB, res.TxResults, 1)
+	txResult := res.TxResults[0]
+
+	if txResult.Code != 0 {
+		return txResult, fmt.Errorf("%s/%d: %q", txResult.Codespace, txResult.Code, txResult.Log)
+	}
+
+	chain.Coordinator.IncrementTime()
+
+	return txResult, nil
+}
+
+// TODO: deprecated, temporary function to test
+// Helper function to create and broadcast a ethereum transaction
+func (chain *TestChain) EvmTxViaPackage(
+	priv cryptotypes.PrivKey,
+	to common.Address,
+	amount *big.Int,
+	data []byte,
+) (*abci.ExecTxResult, error) {
+	app := chain.App.(*evmd.EVMD)
+	ctx := chain.GetContext()
+	msgEthereumTx, err := tx.CreateEthTx(ctx, app, priv, to.Bytes(), amount, data, 0)
+	require.NoError(chain.TB, err)
+	return chain.SendMsgs(msgEthereumTx)
 }
 
 //// Helper function that creates an ethereum transaction

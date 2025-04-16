@@ -120,7 +120,7 @@ func CreateEthTx(
 		GasLimit:  100000,
 		GasFeeCap: baseFee,
 		GasPrice:  big.NewInt(0),
-		GasTipCap: big.NewInt(1),
+		GasTipCap: big.NewInt(0),
 		Input:     data,
 		Accesses:  &ethtypes.AccessList{},
 	}

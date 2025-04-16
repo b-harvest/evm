@@ -149,28 +149,8 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				"",
 			)
 			suite.Require().NoError(err)
-			res, err := suite.chainA.EvmTx(suite.chainA.SenderPrivKey, suite.chainAPrecompile.Address(), big.NewInt(0), data)
-			// TODO: WIP debugging
-			// {0 []   0 0 [] } log: max priority fee per gas higher than max fee per gas (1 > 0): invalid gas cap: invalid request [/Users/dongsamb/git-local/evm/evmd/testutil/abci.go:198]
-			fmt.Println(res, err)
+			res, err := suite.chainA.EvmTxViaManualPackage(suite.chainA.SenderPrivKey, suite.chainAPrecompile.Address(), big.NewInt(0), data)
 			suite.Require().NoError(err)
-			//evmRes, err := evmApp.EVMKeeper.CallEVM(
-			//	ctx,
-			//	suite.chainAPrecompile.ABI,
-			//	sourceAddr,
-			//	suite.chainAPrecompile.Address(),
-			//	true,
-			//	"transfer",
-			//	pathAToB.EndpointA.ChannelConfig.PortID,
-			//	pathAToB.EndpointA.ChannelID,
-			//	originalCoin.Denom,
-			//	originalCoin.Amount.BigInt(),
-			//	sourceAddr,
-			//	receiverAddr.String(),
-			//	timeoutHeight,
-			//	uint64(0),
-			//	"",
-			//)
 			// check that the balance for evmChainA is updated
 			chainABalanceBeforeCommit := evmApp.BankKeeper.GetBalance(
 				suite.chainA.GetContext(),
@@ -179,11 +159,13 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			)
 			//evmApp.Commit()
 			//evmApp.CommitMultiStore()
-			suite.chainA.NextBlock()
+			//suite.chainA.NextBlock()
 			//fmt.Println(evmRes, err)
 
+			//res.Events
 			// TODO: convert events from logs
-			packet, err := evmibctesting.ParsePacketFromEvents(ctx.EventManager().ABCIEvents())
+			//packet, err := evmibctesting.ParsePacketFromEvents(ctx.EventManager().ABCIEvents())
+			packet, err := evmibctesting.ParsePacketFromEvents(res.Events)
 			suite.Require().NoError(err)
 
 			// Get the packet data to determine the amount of tokens being transferred (needed for sending entire balance)
@@ -192,6 +174,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			transferAmount, ok := sdkmath.NewIntFromString(packetData.Token.Amount)
 			suite.Require().True(ok)
 
+			// TODO: debug relay packet sdk/32: "account sequence mismatch, expected 10, got 9: incorrect account sequence"
 			// relay send
 			err = pathAToB.RelayPacket(packet)
 			suite.Require().NoError(err) // relay committed
