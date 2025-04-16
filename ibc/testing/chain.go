@@ -391,6 +391,17 @@ func (chain *TestChain) EvmTxViaManualPackage(
 ) (*abci.ExecTxResult, error) {
 	app := chain.App.(*evmd.EVMD)
 	ctx := chain.GetContext()
+
+	// ensure the chain has the latest time
+	chain.Coordinator.UpdateTimeForChain(chain)
+
+	defer func() {
+		err := chain.SenderAccount.SetSequence(chain.SenderAccount.GetSequence() + 1)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
 	msgEthereumTx, err := tx.CreateEthTx(ctx, app, priv, to.Bytes(), amount, data, 0)
 
 	txConfig := app.GetTxConfig()
@@ -438,51 +449,6 @@ func (chain *TestChain) EvmTxViaPackage(
 	require.NoError(chain.TB, err)
 	return chain.SendMsgs(msgEthereumTx)
 }
-
-//// Helper function that creates an ethereum transaction
-//func (chain *TestChain) BuildEthTx(
-//	priv *ethsecp256k1.PrivKey,
-//	to *common.Address,
-//	amount *big.Int,
-//	gasLimit uint64,
-//	gasPrice *big.Int,
-//	gasFeeCap *big.Int,
-//	gasTipCap *big.Int,
-//	data []byte,
-//	accesses *ethtypes.AccessList,
-//) *evmtypes.MsgEthereumTx {
-//	app := chain.App.(*evmd.EVMD)
-//	ctx := chain.GetContext()
-//	//app.ChainID()
-//	chainID := app.EVMKeeper.Chain()
-//	from := common.BytesToAddress(priv.PubKey().Address().Bytes())
-//	nonce, err := app.AccountKeeper.GetSequence(ctx, sdk.AccAddress(from.Bytes()))
-//	require.NoError(chain.TB, err)
-//
-//	msgEthereumTx := evmtypes.NewTx(
-//		&evmtypes.EvmTxArgs{
-//			ChainID:   nw.GetEIP155ChainID(),
-//			Nonce:     0,
-//			GasLimit:  gasLimit,
-//			GasFeeCap: baseFeeRes.BaseFee.BigInt(),
-//			GasTipCap: big.NewInt(1),
-//			Input:     nil,
-//			Accesses:  &ethtypes.AccessList{},
-//		})
-//		chainID,
-//		nonce,
-//		to,
-//		amount,
-//		gasLimit,
-//		gasPrice,
-//		gasFeeCap,
-//		gasTipCap,
-//		data,
-//		accesses,
-//	)
-//	msgEthereumTx.From = from.String()
-//	return msgEthereumTx
-//}
 
 func (chain *TestChain) FinalizeEthBlock(priv *ethsecp256k1.PrivKey, msgEthereumTx *evmtypes.MsgEthereumTx) (*abci.ResponseFinalizeBlock, error) {
 	app := chain.App.(*evmd.EVMD)

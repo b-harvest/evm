@@ -41,7 +41,7 @@ type ICS20TransferTestSuite struct {
 
 func (suite *ICS20TransferTestSuite) SetupTest() {
 	// TODO: cosmos chain case
-	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 2, 0)
+	suite.coordinator = evmibctesting.NewCoordinator(suite.T(), 1, 1)
 	suite.chainA = suite.coordinator.GetChain(evmibctesting.GetChainID(1))
 	suite.chainB = suite.coordinator.GetChain(evmibctesting.GetChainID(2))
 
@@ -149,21 +149,23 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				"",
 			)
 			suite.Require().NoError(err)
-			res, err := suite.chainA.EvmTxViaManualPackage(suite.chainA.SenderPrivKey, suite.chainAPrecompile.Address(), big.NewInt(0), data)
+			res, err := suite.chainA.EvmTxViaManualPackage(
+				suite.chainA.SenderPrivKey, suite.chainAPrecompile.Address(), big.NewInt(0), data)
 			suite.Require().NoError(err)
+			fmt.Println(res)
+			// TODO: ensure state transition after ibc tx, block commit
+			//evmApp.Commit()
+			//evmApp.CommitMultiStore()
+			suite.chainA.NextBlock()
+			evmApp = suite.chainA.App.(*evmd.EVMD)
+
 			// check that the balance for evmChainA is updated
 			chainABalanceBeforeCommit := evmApp.BankKeeper.GetBalance(
 				suite.chainA.GetContext(),
 				suite.chainA.SenderAccount.GetAddress(),
 				originalCoin.Denom,
 			)
-			//evmApp.Commit()
-			//evmApp.CommitMultiStore()
-			//suite.chainA.NextBlock()
-			//fmt.Println(evmRes, err)
 
-			//res.Events
-			// TODO: convert events from logs
 			//packet, err := evmibctesting.ParsePacketFromEvents(ctx.EventManager().ABCIEvents())
 			packet, err := evmibctesting.ParsePacketFromEvents(res.Events)
 			suite.Require().NoError(err)
@@ -174,7 +176,6 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 			transferAmount, ok := sdkmath.NewIntFromString(packetData.Token.Amount)
 			suite.Require().True(ok)
 
-			// TODO: debug relay packet sdk/32: "account sequence mismatch, expected 10, got 9: incorrect account sequence"
 			// relay send
 			err = pathAToB.RelayPacket(packet)
 			suite.Require().NoError(err) // relay committed
@@ -187,6 +188,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				suite.chainA.SenderAccount.GetAddress(),
 				originalCoin.Denom,
 			)
+			// TODO: need to fix, current: 10000000000000000000stake 9999999999999999900stake 100 10000000000000000000stake
 			fmt.Println(originalBalance.String(), chainABalanceBeforeCommit.String(), transferAmount.String(), chainABalance.String())
 			suite.Require().True(originalBalance.Amount.Sub(transferAmount).Equal(chainABalance.Amount))
 
@@ -196,6 +198,8 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				escrowAddress,
 				originalCoin.Denom,
 			)
+			// TODO: need to fix, current: 100 0stake
+			fmt.Println(transferAmount.String(), chainAEscrowBalance.String())
 			suite.Require().True(transferAmount.Equal(chainAEscrowBalance.Amount))
 
 			// check that voucher exists on chain B
@@ -207,6 +211,8 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				chainBDenom.IBCDenom(),
 			)
 			coinSentFromAToB := sdk.NewCoin(chainBDenom.IBCDenom(), transferAmount)
+			// TODO: need to fix, current 100ibc/D549749C93524DA1831A4B3C850DFC1BA9060261BEDFB224B3B0B4744CD77A70 0ibc/D549749C93524DA1831A4B3C850DFC1BA9060261BEDFB224B3B0B4744CD77A70
+			fmt.Println(coinSentFromAToB.String(), chainBBalance.String())
 			suite.Require().Equal(coinSentFromAToB, chainBBalance)
 		})
 	}
