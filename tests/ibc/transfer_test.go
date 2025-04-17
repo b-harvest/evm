@@ -6,14 +6,16 @@
 package ibc
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/cosmos/evm/evmd"
-	evmibctesting "github.com/cosmos/evm/ibc/testing"
 	"github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+
+	"github.com/cosmos/evm/evmd"
+	evmibctesting "github.com/cosmos/evm/ibc/testing"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -55,12 +57,15 @@ func (suite *TransferTestSuite) TestHandleMsgTransfer() {
 	}{
 		{
 			"transfer single denom",
-			func() {},
+			func() {
+				msgAmount = evmibctesting.DefaultCoinAmount
+			},
 		},
 		{
 			"transfer amount larger than int64",
 			func() {
 				var ok bool
+				// TODO: not applied the malleate amount
 				msgAmount, ok = sdkmath.NewIntFromString("9223372036854775808") // 2^63 (one above int64)
 				suite.Require().True(ok)
 			},
@@ -68,6 +73,7 @@ func (suite *TransferTestSuite) TestHandleMsgTransfer() {
 		{
 			"transfer entire balance",
 			func() {
+				// TODO: not applied the malleate amount
 				msgAmount = types.UnboundedSpendLimit()
 			},
 		},
@@ -90,7 +96,6 @@ func (suite *TransferTestSuite) TestHandleMsgTransfer() {
 			evmApp := suite.evmChainA.App.(*evmd.EVMD)
 			sourceDenomToTransfer, err = evmApp.StakingKeeper.BondDenom(suite.evmChainA.GetContext())
 			suite.Require().NoError(err)
-			msgAmount = evmibctesting.DefaultCoinAmount
 			originalBalance := evmApp.BankKeeper.GetBalance(
 				suite.evmChainA.GetContext(),
 				suite.evmChainA.SenderAccount.GetAddress(),
@@ -121,6 +126,7 @@ func (suite *TransferTestSuite) TestHandleMsgTransfer() {
 			suite.Require().NoError(err)
 			transferAmount, ok := sdkmath.NewIntFromString(packetData.Token.Amount)
 			suite.Require().True(ok)
+			fmt.Println(packetData)
 
 			// relay send
 			err = pathAToB.RelayPacket(packet)

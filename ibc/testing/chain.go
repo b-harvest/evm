@@ -402,6 +402,7 @@ func (chain *TestChain) EvmTxViaManualPackage(
 		}
 	}()
 
+	fmt.Println(chain.ProposedHeader.ChainID)
 	msgEthereumTx, err := tx.CreateEthTx(ctx, app, priv, to.Bytes(), amount, data, 0)
 
 	txConfig := app.GetTxConfig()
@@ -414,12 +415,15 @@ func (chain *TestChain) EvmTxViaManualPackage(
 	require.NoError(chain.TB, err)
 
 	req := abci.RequestFinalizeBlock{
-		Height:          app.LastBlockHeight() + 1,
-		Txs:             [][]byte{bz},
-		ProposerAddress: ctx.BlockHeader().ProposerAddress,
+		Height:             app.LastBlockHeight() + 1,
+		Time:               chain.ProposedHeader.GetTime(),
+		NextValidatorsHash: chain.NextVals.Hash(),
+		Txs:                [][]byte{bz},
+		ProposerAddress:    ctx.BlockHeader().ProposerAddress,
 	}
 
-	res, err := app.BaseApp.FinalizeBlock(&req)
+	res, err := app.FinalizeBlock(&req)
+	require.NoError(chain.TB, err)
 
 	chain.commitBlock(res)
 

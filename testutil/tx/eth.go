@@ -3,6 +3,7 @@ package tx
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -103,6 +104,7 @@ func CreateEthTx(
 	toAddr := common.BytesToAddress(dest)
 	fromAddr := common.BytesToAddress(privKey.PubKey().Address().Bytes())
 	chainID := evmtypes.GetEthChainConfig().ChainID
+	fmt.Println(chainID)
 
 	baseFeeRes, err := exampleApp.EVMKeeper.BaseFee(ctx, &evmtypes.QueryBaseFeeRequest{})
 	if err != nil {
