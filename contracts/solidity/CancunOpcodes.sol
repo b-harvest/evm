@@ -19,9 +19,9 @@ contract CancunOpcodes {
     function testSimpleMCopy(uint8 value) external pure returns (bytes32 copied) {
         assembly {
             let dst := mload(0x40)
-            mstore8(dst, value) // 정확히 dst 위치에 1 byte만 기록
+            mstore8(dst, value) // Store exactly 1 byte at dst position
             mstore(0x40, add(dst, 0x40))
-            mcopy(add(dst, 0x20), dst, 0x20) // mcopy 이후 32바이트 읽기 위해 32 바이트 오프셋으로 mload
+            mcopy(add(dst, 0x20), dst, 0x20) // Use 32 byte offset to read 32 bytes after mcopy
             copied := mload(add(dst, 0x20))
         }
     }
