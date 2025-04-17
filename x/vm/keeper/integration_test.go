@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"math/big"
+	"testing"
 
 	//nolint:revive // dot imports are fine for Ginkgo
 	. "github.com/onsi/ginkgo/v2"
@@ -28,6 +29,11 @@ type IntegrationTestSuite struct {
 	factory     factory.TxFactory
 	grpcHandler grpc.Handler
 	keyring     testkeyring.Keyring
+}
+
+func TestIntegration(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Keeper Integration Suite")
 }
 
 // This test suite is meant to test the EVM module in the context of the ATOM.
@@ -667,3 +673,221 @@ func checkMintTopics(res abcitypes.ExecTxResult) error {
 	}
 	return integrationutils.CheckTxTopics(res, expectedTopics)
 }
+
+var _ = Describe("Testing Cancun Opcodes", Label("EVM"), Ordered, func() {
+	var (
+		s            *IntegrationTestSuite
+		contractAddr common.Address
+	)
+
+	BeforeAll(func() {
+		keyring := testkeyring.New(4)
+		integrationNetwork := network.New(
+			network.WithPreFundedAccounts(keyring.GetAllAccAddrs()...),
+		)
+		grpcHandler := grpc.NewIntegrationHandler(integrationNetwork)
+		txFactory := factory.New(integrationNetwork, grpcHandler)
+		s = &IntegrationTestSuite{
+			network:     integrationNetwork,
+			factory:     txFactory,
+			grpcHandler: grpcHandler,
+			keyring:     keyring,
+		}
+
+		// Set params to default values
+		defaultParams := evmtypes.DefaultParams()
+		err := integrationutils.UpdateEvmParams(
+			integrationutils.UpdateParamsInput{
+				Tf:      s.factory,
+				Network: s.network,
+				Pk:      s.keyring.GetPrivKey(0),
+				Params:  defaultParams,
+			},
+		)
+		Expect(err).To(BeNil())
+
+		// Deploy contract once for all tests
+		senderPriv := s.keyring.GetPrivKey(0)
+		compiledContract := contracts.CancunOpcodesContract
+		contractAddr, err = s.factory.DeployContract(
+			senderPriv,
+			evmtypes.EvmTxArgs{},
+			factory.ContractDeploymentData{
+				Contract:        compiledContract,
+				ConstructorArgs: []interface{}{},
+			},
+		)
+		Expect(err).To(BeNil())
+		Expect(contractAddr).ToNot(Equal(common.Address{}))
+
+		err = s.network.NextBlock()
+		Expect(err).To(BeNil())
+	})
+
+	AfterEach(func() {
+		err := s.network.NextBlock()
+		Expect(err).To(BeNil())
+	})
+
+	DescribeTable("Testing TSTORE/TLOAD opcodes", func(getTxArgs func() evmtypes.EvmTxArgs) {
+		senderPriv := s.keyring.GetPrivKey(0)
+		testValue := big.NewInt(42)
+
+		txArgs := getTxArgs()
+		txArgs.To = &contractAddr
+
+		tstoreArgs := factory.CallArgs{
+			ContractABI: contracts.CancunOpcodesContract.ABI,
+			MethodName:  "testTstoreTload",
+			Args:        []interface{}{testValue},
+		}
+
+		res, err := s.factory.ExecuteContractCall(senderPriv, txArgs, tstoreArgs)
+		Expect(err).To(BeNil())
+		Expect(res.IsOK()).To(Equal(true), "transaction should have succeeded", res.GetLog())
+
+		var result *big.Int
+		err = integrationutils.DecodeContractCallResponse(&result, tstoreArgs, res)
+		Expect(err).To(BeNil())
+		Expect(result).To(Equal(testValue))
+	},
+		Entry("as a DynamicFeeTx", func() evmtypes.EvmTxArgs { return evmtypes.EvmTxArgs{} }),
+		Entry("as an AccessListTx", func() evmtypes.EvmTxArgs {
+			return evmtypes.EvmTxArgs{
+				Accesses: &ethtypes.AccessList{{
+					Address:     s.keyring.GetAddr(1),
+					StorageKeys: []common.Hash{{0}},
+				}},
+			}
+		}),
+		Entry("as a LegacyTx", func() evmtypes.EvmTxArgs {
+			return evmtypes.EvmTxArgs{
+				GasPrice: big.NewInt(1e9),
+			}
+		}),
+	)
+
+	DescribeTable("Testing MCOPY opcode", func(getTxArgs func() evmtypes.EvmTxArgs) {
+		senderPriv := s.keyring.GetPrivKey(0)
+		inputValue := uint8(0xAB) // test 1-byte value
+
+		txArgs := getTxArgs()
+		txArgs.To = &contractAddr
+
+		mcopyArgs := factory.CallArgs{
+			ContractABI: contracts.CancunOpcodesContract.ABI,
+			MethodName:  "testSimpleMCopy",
+			Args:        []interface{}{inputValue},
+		}
+
+		res, err := s.factory.ExecuteContractCall(senderPriv, txArgs, mcopyArgs)
+		Expect(err).To(BeNil())
+		Expect(res.IsOK()).To(BeTrue(), res.GetLog())
+
+		var result [32]byte
+		err = integrationutils.DecodeContractCallResponse(&result, mcopyArgs, res)
+		Expect(err).To(BeNil())
+
+		expected := [32]byte{}
+		expected[0] = inputValue // first byte only
+		Expect(result).To(Equal(expected))
+	},
+		Entry("as a DynamicFeeTx", func() evmtypes.EvmTxArgs { return evmtypes.EvmTxArgs{} }),
+		Entry("as an AccessListTx", func() evmtypes.EvmTxArgs {
+			return evmtypes.EvmTxArgs{
+				Accesses: &ethtypes.AccessList{{
+					Address:     s.keyring.GetAddr(1),
+					StorageKeys: []common.Hash{{0}},
+				}},
+			}
+		}),
+		Entry("as a LegacyTx", func() evmtypes.EvmTxArgs {
+			return evmtypes.EvmTxArgs{
+				GasPrice: big.NewInt(1e9),
+			}
+		}),
+	)
+
+	DescribeTable("Testing BLOBBASEFEE opcode", func(getTxArgs func() evmtypes.EvmTxArgs) {
+		senderPriv := s.keyring.GetPrivKey(0)
+
+		txArgs := getTxArgs()
+		txArgs.To = &contractAddr
+
+		blobbasefeeArgs := factory.CallArgs{
+			ContractABI: contracts.CancunOpcodesContract.ABI,
+			MethodName:  "testBlobBaseFee",
+			Args:        []interface{}{},
+		}
+
+		res, err := s.factory.ExecuteContractCall(senderPriv, txArgs, blobbasefeeArgs)
+		Expect(err).To(BeNil())
+		Expect(res.IsOK()).To(Equal(true), "transaction should have succeeded", res.GetLog())
+
+		var result *big.Int
+		err = integrationutils.DecodeContractCallResponse(&result, blobbasefeeArgs, res)
+		Expect(err).To(BeNil())
+		Expect(result.Cmp(big.NewInt(0))).To(Equal(0), "Expected blobbasefee to be 0")
+	},
+		Entry("as a DynamicFeeTx", func() evmtypes.EvmTxArgs { return evmtypes.EvmTxArgs{} }),
+		Entry("as an AccessListTx", func() evmtypes.EvmTxArgs {
+			return evmtypes.EvmTxArgs{
+				Accesses: &ethtypes.AccessList{{
+					Address:     s.keyring.GetAddr(1),
+					StorageKeys: []common.Hash{{0}},
+				}},
+			}
+		}),
+		Entry("as a LegacyTx", func() evmtypes.EvmTxArgs {
+			return evmtypes.EvmTxArgs{
+				GasPrice: big.NewInt(1e9),
+			}
+		}),
+	)
+
+	DescribeTable("Testing BLOBHASH opcode", func(getTxArgs func() evmtypes.EvmTxArgs) {
+		senderPriv := s.keyring.GetPrivKey(0)
+		testIndex := big.NewInt(0)
+
+		txArgs := getTxArgs()
+		txArgs.To = &contractAddr
+
+		blobhashArgs := factory.CallArgs{
+			ContractABI: contracts.CancunOpcodesContract.ABI,
+			MethodName:  "testBlobHash",
+			Args:        []interface{}{testIndex},
+		}
+
+		res, err := s.factory.ExecuteContractCall(senderPriv, txArgs, blobhashArgs)
+		Expect(err).To(BeNil())
+		Expect(res.IsOK()).To(Equal(true), "transaction should have succeeded", res.GetLog())
+
+		var result [32]byte
+		err = integrationutils.DecodeContractCallResponse(&result, blobhashArgs, res)
+		Expect(err).To(BeNil())
+
+		isZero := true
+		for _, b := range result {
+			if b != 0 {
+				isZero = false
+				break
+			}
+		}
+		Expect(isZero).To(BeTrue(), "Blob hash should be all zeros")
+	},
+		Entry("as a DynamicFeeTx", func() evmtypes.EvmTxArgs { return evmtypes.EvmTxArgs{} }),
+		Entry("as an AccessListTx", func() evmtypes.EvmTxArgs {
+			return evmtypes.EvmTxArgs{
+				Accesses: &ethtypes.AccessList{{
+					Address:     s.keyring.GetAddr(1),
+					StorageKeys: []common.Hash{{0}},
+				}},
+			}
+		}),
+		Entry("as a LegacyTx", func() evmtypes.EvmTxArgs {
+			return evmtypes.EvmTxArgs{
+				GasPrice: big.NewInt(1e9),
+			}
+		}),
+	)
+})
