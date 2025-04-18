@@ -66,6 +66,8 @@ func (path *Path) RelayPacket(packet channeltypes.Packet) error {
 	return err
 }
 
+// TODO: add relayPacket for v2 packet
+
 // RelayPacketWithResults attempts to relay the packet first on EndpointA and then on EndpointB
 // if EndpointA does not contain a packet commitment for that packet. The function returns:
 // - The result of the packet receive transaction.

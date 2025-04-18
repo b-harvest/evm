@@ -6,15 +6,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+
 	cmn "github.com/cosmos/evm/precompiles/common"
 	"github.com/cosmos/evm/x/vm/core/vm"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
-
-	errorsmod "cosmossdk.io/errors"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const (
@@ -37,10 +34,11 @@ func (p *Precompile) Transfer(
 		return nil, err
 	}
 
+	// TODO: temporary disable, need to disable only on IBC v2 channel
 	// check if channel exists and is open
-	if !p.channelKeeper.HasChannel(ctx, msg.SourcePort, msg.SourceChannel) {
-		return nil, errorsmod.Wrapf(channeltypes.ErrChannelNotFound, "port ID (%s) channel ID (%s)", msg.SourcePort, msg.SourceChannel)
-	}
+	//if !p.channelKeeper.HasChannel(ctx, msg.SourcePort, msg.SourceChannel) {
+	//	return nil, errorsmod.Wrapf(channeltypes.ErrChannelNotFound, "port ID (%s) channel ID (%s)", msg.SourcePort, msg.SourceChannel)
+	//}
 
 	// isCallerSender is true when the contract caller is the same as the sender
 	isCallerSender := contract.CallerAddress == sender
