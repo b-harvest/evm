@@ -143,6 +143,13 @@ type (
 		multiStore storetypes.CacheMultiStore
 		events     sdk.Events
 	}
+
+	// v1.13.14
+
+	transientStorageChange struct {
+		account       *common.Address
+		key, prevalue common.Hash
+	}
 )
 
 var (
@@ -158,6 +165,8 @@ var (
 	_ JournalEntry = accessListAddAccountChange{}
 	_ JournalEntry = accessListAddSlotChange{}
 	_ JournalEntry = precompileCallChange{}
+
+	_ JournalEntry = transientStorageChange{}
 )
 
 func (pc precompileCallChange) Revert(s *StateDB) {
@@ -274,5 +283,13 @@ func (ch accessListAddSlotChange) Revert(s *StateDB) {
 }
 
 func (ch accessListAddSlotChange) Dirtied() *common.Address {
+	return nil
+}
+
+func (ch transientStorageChange) Revert(s *StateDB) {
+	s.setTransientState(*ch.account, ch.key, ch.prevalue)
+}
+
+func (ch transientStorageChange) Dirtied() *common.Address {
 	return nil
 }
