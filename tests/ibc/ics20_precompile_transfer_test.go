@@ -102,7 +102,7 @@ func (suite *ICS20TransferTestSuite) TestHandleMsgTransfer() {
 				erc20 = true
 			},
 		},
-		// TODO: add v2 cases, erc20 token case, registered token pair case, after authz dependency deprecated case
+		// TODO: registered token pair case, after authz dependency deprecated case
 	}
 
 	for _, tc := range testCases {
