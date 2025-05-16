@@ -162,7 +162,7 @@ func (k Keeper) EmitReceiptsRootEvent(ctx sdk.Context, receiptsRoot common.Hash)
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
 			types.EventTypeReceiptsRoot,
-			sdk.NewAttribute(types.AttributeKeyEthereumReceiptsRoot, string(receiptsRoot.Bytes())),
+			sdk.NewAttribute(types.AttributeKeyEthereumReceiptsRoot, receiptsRoot.Hex()),
 		),
 	)
 }
