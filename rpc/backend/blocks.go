@@ -376,7 +376,7 @@ func (b *Backend) ReceiptsRoot(blockRes *tmrpctypes.ResultBlockResults) (common.
 
 		for _, attr := range event.Attributes {
 			if attr.Key == evmtypes.AttributeKeyEthereumReceiptsRoot {
-				return common.Hash([]byte(attr.Value)), nil
+				return common.HexToHash(attr.Value), nil
 			}
 		}
 	}
