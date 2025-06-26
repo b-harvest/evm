@@ -2,6 +2,7 @@ package evm
 
 import (
 	"math/big"
+	"time"
 
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
@@ -46,6 +47,9 @@ func NewEVMMonoDecorator(
 
 // AnteHandle handles the entire decorator chain using a mono decorator.
 func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (newCtx sdk.Context, err error) {
+
+	ctx.Logger().Info("starting MonoDecorator", "timestamp(unixnano)", time.Now().UnixNano())
+	defer ctx.Logger().Info("finished MonoDecorator", "timestamp(unixnano)", time.Now().UnixNano())
 	// 0. Basic validation of the transaction
 	var txFeeInfo *txtypes.Fee
 	if !ctx.IsReCheckTx() {
@@ -90,12 +94,14 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		// the price instead of the fee. This would save some computation.
 		//
 		// 2. mempool inclusion fee
+		ctx.Logger().Info("start MonoDecorator/CheckMempoolFee", "timestamp(unixnano)", time.Now().UnixNano())
 		if ctx.IsCheckTx() && !simulate {
 			// FIX: Mempool dec should be converted
 			if err := CheckMempoolFee(fee, decUtils.MempoolMinGasPrice, gasLimit, decUtils.Rules.IsLondon); err != nil {
 				return ctx, err
 			}
 		}
+		ctx.Logger().Info("end MonoDecorator/CheckMempoolFee", "timestamp(unixnano)", time.Now().UnixNano())
 
 		if txData.TxType() == ethtypes.DynamicFeeTxType && decUtils.BaseFee != nil {
 			// If the base fee is not empty, we compute the effective gas price
@@ -108,11 +114,15 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		}
 
 		// 3. min gas price (global min fee)
+		ctx.Logger().Info("start MonoDecorator/CheckGlobalFee", "timestamp(unixnano)", time.Now().UnixNano())
 		if err := CheckGlobalFee(fee, decUtils.GlobalMinGasPrice, gasLimit); err != nil {
 			return ctx, err
 		}
+		ctx.Logger().Info("end MonoDecorator/CheckGlobalFee", "timestamp(unixnano)", time.Now().UnixNano())
 
 		// 4. validate msg contents
+		ctx.Logger().Info("start MonoDecorator/ValidateMsg", "timestamp(unixnano)", time.Now().UnixNano())
+
 		if err := ValidateMsg(
 			decUtils.EvmParams,
 			txData,
@@ -120,8 +130,11 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		); err != nil {
 			return ctx, err
 		}
+		ctx.Logger().Info("end MonoDecorator/ValidateMsg", "timestamp(unixnano)", time.Now().UnixNano())
 
 		// 5. signature verification
+		ctx.Logger().Info("start MonoDecorator/SignatureVerification", "timestamp(unixnano)", time.Now().UnixNano())
+
 		if err := SignatureVerification(
 			ethMsg,
 			decUtils.Signer,
@@ -129,6 +142,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		); err != nil {
 			return ctx, err
 		}
+		ctx.Logger().Info("end MonoDecorator/SignatureVerification", "timestamp(unixnano)", time.Now().UnixNano())
 
 		from := ethMsg.GetFrom()
 		fromAddr := common.BytesToAddress(from)
@@ -137,6 +151,8 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		// We get the account with the balance from the EVM keeper because it is
 		// using a wrapper of the bank keeper as a dependency to scale all
 		// balances to 18 decimals.
+		ctx.Logger().Info("start MonoDecorator/VerifyAccountBalance", "timestamp(unixnano)", time.Now().UnixNano())
+
 		account := md.evmKeeper.GetAccount(ctx, fromAddr)
 		if err := VerifyAccountBalance(
 			ctx,
@@ -147,8 +163,11 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		); err != nil {
 			return ctx, err
 		}
+		ctx.Logger().Info("end MonoDecorator/VerifyAccountBalance", "timestamp(unixnano)", time.Now().UnixNano())
 
 		// 7. can transfer
+		ctx.Logger().Info("start MonoDecorator/CanTransfer", "timestamp(unixnano)", time.Now().UnixNano())
+
 		coreMsg, err := ethMsg.AsMessage(decUtils.Signer, decUtils.BaseFee)
 		if err != nil {
 			return ctx, errorsmod.Wrapf(
@@ -168,8 +187,11 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		); err != nil {
 			return ctx, err
 		}
+		ctx.Logger().Info("end MonoDecorator/CanTransfer", "timestamp(unixnano)", time.Now().UnixNano())
 
 		// 8. gas consumption
+		ctx.Logger().Info("start MonoDecorator/GasConsumption", "timestamp(unixnano)", time.Now().UnixNano())
+
 		msgFees, err := evmkeeper.VerifyFee(
 			txData,
 			evmDenom,
@@ -214,8 +236,11 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		// Update the transaction gas limit adding the gas specified in the
 		// current message.
 		decUtils.TxGasLimit += gas
+		ctx.Logger().Info("end MonoDecorator/GasConsumption", "timestamp(unixnano)", time.Now().UnixNano())
 
 		// 9. increment sequence
+		ctx.Logger().Info("start MonoDecorator/IncreaseSequence", "timestamp(unixnano)", time.Now().UnixNano())
+
 		acc := md.accountKeeper.GetAccount(ctx, from)
 		if acc == nil {
 			// safety check: shouldn't happen
@@ -229,25 +254,34 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		if err := IncrementNonce(ctx, md.accountKeeper, acc, txData.GetNonce()); err != nil {
 			return ctx, err
 		}
+		ctx.Logger().Info("end MonoDecorator/IncreaseSequence", "timestamp(unixnano)", time.Now().UnixNano())
 
 		// 10. gas wanted
+		ctx.Logger().Info("start MonoDecorator/CheckGasWanted", "timestamp(unixnano)", time.Now().UnixNano())
+
 		if err := CheckGasWanted(ctx, md.feeMarketKeeper, tx, decUtils.Rules.IsLondon); err != nil {
 			return ctx, err
 		}
+		ctx.Logger().Info("end MonoDecorator/CheckGasWanted", "timestamp(unixnano)", time.Now().UnixNano())
 
 		// 11. emit events
 		txIdx := uint64(i) //nolint:gosec // G115
 		EmitTxHashEvent(ctx, ethMsg, decUtils.BlockTxIndex, txIdx)
 	}
+	ctx.Logger().Info("start MonoDecorator/CheckTxFee", "timestamp(unixnano)", time.Now().UnixNano())
 
 	if err := CheckTxFee(txFeeInfo, decUtils.TxFee, decUtils.TxGasLimit); err != nil {
 		return ctx, err
 	}
+	ctx.Logger().Info("end MonoDecorator/CheckTxFee", "timestamp(unixnano)", time.Now().UnixNano())
+
+	ctx.Logger().Info("start MonoDecorator/CheckBlockGasLimit", "timestamp(unixnano)", time.Now().UnixNano())
 
 	ctx, err = CheckBlockGasLimit(ctx, decUtils.GasWanted, decUtils.MinPriority)
 	if err != nil {
 		return ctx, err
 	}
+	ctx.Logger().Info("end MonoDecorator/CheckBlockGasLimit", "timestamp(unixnano)", time.Now().UnixNano())
 
 	return next(ctx, tx, simulate)
 }
