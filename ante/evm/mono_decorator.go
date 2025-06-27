@@ -49,7 +49,6 @@ func NewEVMMonoDecorator(
 func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (newCtx sdk.Context, err error) {
 
 	ctx.Logger().Info("starting MonoDecorator", "timestamp(unixnano)", time.Now().UnixNano())
-	defer ctx.Logger().Info("finished MonoDecorator", "timestamp(unixnano)", time.Now().UnixNano())
 	// 0. Basic validation of the transaction
 	var txFeeInfo *txtypes.Fee
 	if !ctx.IsReCheckTx() {
@@ -282,6 +281,8 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		return ctx, err
 	}
 	ctx.Logger().Info("end MonoDecorator/CheckBlockGasLimit", "timestamp(unixnano)", time.Now().UnixNano())
+
+	ctx.Logger().Info("finished MonoDecorator", "timestamp(unixnano)", time.Now().UnixNano())
 
 	return next(ctx, tx, simulate)
 }
