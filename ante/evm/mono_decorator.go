@@ -47,7 +47,8 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		// should be converted later when used.
 		_, err = ValidateTx(tx)
 		if err != nil {
-			return ctx, err
+			//return ctx, err
+			// do nothing
 		}
 	}
 
@@ -57,13 +58,13 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	// 1. setup ctx
 	ctx, err = SetupContextAndResetTransientGas(ctx, tx, md.evmKeeper)
 	if err != nil {
-		return ctx, err
+		// do nothing
 	}
 
 	// 2. get utils
 	decUtils, err := NewMonoDecoratorUtils(ctx, md.evmKeeper)
 	if err != nil {
-		return ctx, err
+		// do nothing
 	}
 
 	// NOTE: the protocol does not support multiple EVM messages currently so
@@ -71,7 +72,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 	for _, msg := range tx.GetMsgs() {
 		ethMsg, txData, err := evmtypes.UnpackEthMsg(msg)
 		if err != nil {
-			return ctx, err
+			// do nothing
 		}
 
 		//feeAmt := txData.Fee()
@@ -120,7 +121,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 			decUtils.Signer,
 			decUtils.EvmParams.AllowUnprotectedTxs,
 		); err != nil {
-			return ctx, err
+			// do nothing
 		}
 
 		from := ethMsg.GetFrom()
@@ -223,10 +224,12 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		// we merged the nonce verification to nonce increment, so when tx includes multiple messages
 		// with same sender, they'll be accepted.
 		if txData.GetNonce() != nonce {
-			return ctx, errorsmod.Wrapf(
-				errortypes.ErrInvalidSequence,
-				"invalid nonce; got %d, expected %d", txData.GetNonce(), nonce,
-			)
+			//return ctx, errorsmod.Wrapf(
+			//	errortypes.ErrInvalidSequence,
+			//	"invalid nonce; got %d, expected %d", txData.GetNonce(), nonce,
+			//)
+			// do nothing
+
 		}
 
 		//if err := IncrementNonce(ctx, md.accountKeeper, acc, txData.GetNonce()); err != nil {
