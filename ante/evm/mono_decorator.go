@@ -1,9 +1,7 @@
 package evm
 
 import (
-	errorsmod "cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	anteinterfaces "github.com/cosmos/evm/ante/interfaces"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
@@ -124,7 +122,7 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 			// do nothing
 		}
 
-		from := ethMsg.GetFrom()
+		//from := ethMsg.GetFrom()
 		//fromAddr := common.BytesToAddress(from)
 
 		//// 6. account balance verification
@@ -210,27 +208,29 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 		//decUtils.TxGasLimit += gas
 
 		// 9. increment sequence
-		acc := md.accountKeeper.GetAccount(ctx, from)
-		if acc == nil {
-			// safety check: shouldn't happen
-			return ctx, errorsmod.Wrapf(
-				errortypes.ErrUnknownAddress,
-				"account %s does not exist",
-				from,
-			)
-		}
+		/*
+			acc := md.accountKeeper.GetAccount(ctx, from)
+			if acc == nil {
+				// safety check: shouldn't happen
+				return ctx, errorsmod.Wrapf(
+					errortypes.ErrUnknownAddress,
+					"account %s does not exist",
+					from,
+				)
+			}
 
-		nonce := acc.GetSequence()
-		// we merged the nonce verification to nonce increment, so when tx includes multiple messages
-		// with same sender, they'll be accepted.
-		if txData.GetNonce() != nonce {
-			//return ctx, errorsmod.Wrapf(
-			//	errortypes.ErrInvalidSequence,
-			//	"invalid nonce; got %d, expected %d", txData.GetNonce(), nonce,
-			//)
-			// do nothing
+			nonce := acc.GetSequence()
+			// we merged the nonce verification to nonce increment, so when tx includes multiple messages
+			// with same sender, they'll be accepted.
+			if txData.GetNonce() != nonce {
+				//return ctx, errorsmod.Wrapf(
+				//	errortypes.ErrInvalidSequence,
+				//	"invalid nonce; got %d, expected %d", txData.GetNonce(), nonce,
+				//)
+				// do nothing
 
-		}
+			}
+		*/
 
 		//if err := IncrementNonce(ctx, md.accountKeeper, acc, txData.GetNonce()); err != nil {
 		//	return ctx, err
