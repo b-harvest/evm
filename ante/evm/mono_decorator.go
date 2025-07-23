@@ -74,13 +74,18 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 
 	// NOTE: the protocol does not support multiple EVM messages currently so
 	// this loop will complete after the first message.
+	var feeAmt *big.Int
 	for i, msg := range tx.GetMsgs() {
 		ethMsg, txData, err := evmtypes.UnpackEthMsg(msg)
 		if err != nil {
 			// do nothing
 		}
+		if txData == nil {
+			feeAmt = big.NewInt(0)
+		} else {
+			feeAmt = txData.Fee()
+		}
 
-		feeAmt := txData.Fee()
 		gas := txData.GetGas()
 		fee := sdkmath.LegacyNewDecFromBigInt(feeAmt)
 		gasLimit := sdkmath.LegacyNewDecFromBigInt(new(big.Int).SetUint64(gas))
