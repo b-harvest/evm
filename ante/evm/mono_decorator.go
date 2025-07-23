@@ -230,23 +230,23 @@ func (md MonoDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, ne
 			// 	from,
 			// )
 		}
+		/*
+			nonce := acc.GetSequence()
+			// we merged the nonce verification to nonce increment, so when tx includes multiple messages
+			// with same sender, they'll be accepted.
+			if txData.GetNonce() != nonce {
+				//return ctx, errorsmod.Wrapf(
+				//	errortypes.ErrInvalidSequence,
+				//	"invalid nonce; got %d, expected %d", txData.GetNonce(), nonce,
+				//)
+				// do nothing
 
-		nonce := acc.GetSequence()
-		// we merged the nonce verification to nonce increment, so when tx includes multiple messages
-		// with same sender, they'll be accepted.
-		if txData.GetNonce() != nonce {
-			//return ctx, errorsmod.Wrapf(
-			//	errortypes.ErrInvalidSequence,
-			//	"invalid nonce; got %d, expected %d", txData.GetNonce(), nonce,
-			//)
-			// do nothing
+			}
 
-		}
-
-		if err := IncrementNonce(ctx, md.accountKeeper, acc, txData.GetNonce()); err != nil {
-			// return ctx, err
-		}
-
+			if err := IncrementNonce(ctx, md.accountKeeper, acc, txData.GetNonce()); err != nil {
+				// return ctx, err
+			}
+		*/
 		// 10. gas wanted
 		if err := CheckGasWanted(ctx, md.feeMarketKeeper, tx, decUtils.Rules.IsLondon); err != nil {
 			// return ctx, err
